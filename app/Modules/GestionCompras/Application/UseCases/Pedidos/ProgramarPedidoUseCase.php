@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Storage;
 
 class ProgramarPedidoUseCase
 {
+    use AsignarHorarioHabilTrait;
+
     private CpPedidoProgramadoRepositoryInterface $repository;
 
     public function __construct(CpPedidoProgramadoRepositoryInterface $repository)
@@ -35,7 +37,7 @@ class ProgramarPedidoUseCase
             Storage::disk('public')->put('pedidos_firma/' . $nombreArchivo, $image_base64);
             $rutaFirma = 'storage/pedidos_firma/' . $nombreArchivo;
         } elseif ($dto->useStoredSignature) {
-            $user = \App\Models\User::find($dto->creadoPor);
+            $user = \App\Models\Usuario::find($dto->creadoPor);
             if ($user && $user->firma_digital) {
                 // Copy the user's signature to the FirmasProgramacionPedidos directory
                 $extension = pathinfo($user->firma_digital, PATHINFO_EXTENSION);
@@ -54,7 +56,7 @@ class ProgramarPedidoUseCase
 
         $datos = [
             'datos_pedido' => $dto->datosPedido,
-            'fecha_programada' => $dto->fechaProgramada,
+            'fecha_programada' => $this->calcularFechaYHoraHabil($dto->fechaProgramada),
             'firma_programador' => $rutaFirma,
             'creado_por' => $dto->creadoPor,
             'estado' => 'programado'

@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Storage;
 
 class ActualizarPedidoProgramadoUseCase
 {
+    use AsignarHorarioHabilTrait;
+
     private CpPedidoProgramadoRepositoryInterface $repository;
 
     public function __construct(CpPedidoProgramadoRepositoryInterface $repository)
@@ -30,7 +32,7 @@ class ActualizarPedidoProgramadoUseCase
         }
 
         if ($dto->fechaProgramada !== null) {
-            $datosActualizar['fecha_programada'] = $dto->fechaProgramada;
+            $datosActualizar['fecha_programada'] = $this->calcularFechaYHoraHabil($dto->fechaProgramada);
         }
 
         if ($dto->firmaFile) {
@@ -47,7 +49,7 @@ class ActualizarPedidoProgramadoUseCase
             Storage::disk('public')->put('pedidos_firma/' . $nombreArchivo, $image_base64);
             $datosActualizar['firma_programador'] = 'storage/pedidos_firma/' . $nombreArchivo;
         } elseif ($dto->useStoredSignature) {
-            $user = \App\Models\User::find($pedido->creado_por);
+            $user = \App\Models\Usuario::find($pedido->creado_por);
             if ($user && $user->firma_digital) {
                 $extension = pathinfo($user->firma_digital, PATHINFO_EXTENSION);
                 $nombreArchivo = 'firma_' . $pedido->creado_por . '_' . time() . '_' . Str::random(5) . '.' . ($extension ?: 'png');
