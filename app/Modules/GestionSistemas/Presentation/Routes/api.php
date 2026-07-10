@@ -49,3 +49,10 @@ Route::middleware('auth:api')->prefix('gestion-sistemas')->group(function () {
     Route::delete('/pc-mantenimientos/{id}', [\App\Modules\GestionSistemas\Presentation\Controllers\PcMantenimientoController::class, 'destroy']);
     Route::post('/pc-mantenimientos/{id}/actualizar-firmas', [\App\Modules\GestionSistemas\Presentation\Controllers\PcMantenimientoController::class, 'actualizarFirmas']);
 });
+
+Route::middleware('auth:api')->group(function () {
+    // Imagen Mensual
+    Route::post('/imagen-mensual', [\App\Modules\GestionSistemas\Presentation\Controllers\ImagenMensualController::class, 'subir']);
+    Route::get('/imagen-mensual', [\App\Modules\GestionSistemas\Presentation\Controllers\ImagenMensualController::class, 'descargar']);
+    Route::delete('/imagen-mensual', [\App\Modules\GestionSistemas\Presentation\Controllers\ImagenMensualController::class, 'eliminar']);
+});

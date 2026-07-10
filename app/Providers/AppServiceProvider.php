@@ -20,6 +20,11 @@ class AppServiceProvider extends ServiceProvider
             \App\Modules\GestionCompras\Domain\Contracts\CpPedidoProgramadoRepositoryInterface::class,
             \App\Modules\GestionCompras\Infrastructure\Repositories\CpPedidoProgramadoRepository::class
         );
+
+        $this->app->bind(
+            \App\Modules\GestionSistemas\Domain\Repositories\ImagenMensualRepositoryInterface::class,
+            \App\Modules\GestionSistemas\Infrastructure\Repositories\ImagenMensualRepository::class
+        );
     }
 
     /**
