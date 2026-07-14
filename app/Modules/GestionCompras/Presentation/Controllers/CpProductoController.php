@@ -27,14 +27,21 @@ class CpProductoController extends Controller
     #[OA\Get(
         path: '/api/gestion-compras/cp-productos',
         tags: ['CpProductos'],
-        summary: 'Listar producto',
+        summary: 'Listar productos',
+        description: 'Obtiene la lista de productos paginada (máximo 20). Permite buscar por nombre o código del producto.',
         security: [['bearerAuth' => []]],
-        responses: [new OA\Response(response: 200, description: 'Lista de producto')]
+        parameters: [
+            new OA\Parameter(name: 'search', in: 'query', required: false, description: 'Buscar por nombre o código del producto', schema: new OA\Schema(type: 'string'))
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Lista de productos', content: new OA\JsonContent(ref: '#/components/schemas/ApiResponse'))
+        ]
     )]
-    public function index()
+    public function index(Request $request)
     {
-        $items = $this->listarUseCase->execute();
-        return ApiResponse::success($items, 'Lista de producto');
+        $search = $request->query('search');
+        $items = $this->listarUseCase->execute($search);
+        return ApiResponse::success($items, 'Lista de productos');
     }
 
     #[OA\Post(

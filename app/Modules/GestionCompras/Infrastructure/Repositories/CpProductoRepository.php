@@ -6,9 +6,18 @@ use App\Models\CpProducto;
 
 class CpProductoRepository
 {
-    public function getAll()
+    public function getAll(?string $search = null)
     {
-        return CpProducto::all();
+        $query = CpProducto::query();
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('nombre', 'LIKE', "%{$search}%")
+                  ->orWhere('codigo', 'LIKE', "%{$search}%");
+            });
+        }
+
+        return $query->limit(20)->get();
     }
 
     public function create(array $data)

@@ -8,8 +8,8 @@ class ListarProductoUseCase
 {
     public function __construct(protected CpProductoRepository $repository) {}
 
-    public function execute()
+    public function execute(?string $search = null)
     {
-        return $this->repository->getAll(func_get_args() ? func_get_arg(0) : null);
+        return $this->repository->getAll($search);
     }
 }
