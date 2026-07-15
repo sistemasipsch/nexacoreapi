@@ -34,7 +34,32 @@ class PcEquipoRepository implements PcEquipoRepositoryInterface
     {
         $equipo = PcEquipo::find($id);
         if ($equipo) {
-            return $equipo->delete();
+            DB::beginTransaction();
+            try {
+                // Delete children of entregas
+                $entregaIds = DB::table('pc_entregas')->where('equipo_id', $id)->pluck('id');
+                if ($entregaIds->isNotEmpty()) {
+                    DB::table('pc_devuelto')->whereIn('entrega_id', $entregaIds)->delete();
+                    DB::table('pc_perifericos_entregados')->whereIn('entrega_id', $entregaIds)->delete();
+                }
+
+                // Delete direct children of pc_equipos
+                DB::table('pc_entregas')->where('equipo_id', $id)->delete();
+                DB::table('pc_caracteristicas_tecnicas')->where('equipo_id', $id)->delete();
+                DB::table('pc_cronograma_mantenimientos')->where('equipo_id', $id)->delete();
+                DB::table('pc_historial_asignaciones')->where('equipo_id', $id)->delete();
+                DB::table('pc_licencias_software')->where('equipo_id', $id)->delete();
+                DB::table('pc_mantenimientos')->where('equipo_id', $id)->delete();
+
+                // Finally delete the parent record
+                $equipo->delete();
+                
+                DB::commit();
+                return true;
+            } catch (\Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
         }
         return false;
     }
