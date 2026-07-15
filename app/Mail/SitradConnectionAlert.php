@@ -48,7 +48,7 @@ class SitradConnectionAlert extends Mailable
         return new Content(
             view: 'emails.sitrad_alert',
             with: [
-                'timestamp' => now()->format('d/m/Y h:i A'),
+                'timestamp' => now()->timezone('America/Bogota')->format('d/m/Y h:i A'),
             ]
         );
     }
