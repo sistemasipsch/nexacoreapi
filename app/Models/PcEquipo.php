@@ -59,7 +59,7 @@ class PcEquipo extends Model
 
     public function responsable()
     {
-        return $this->belongsTo(Usuario::class, 'responsable_id');
+        return $this->belongsTo(Personal::class, 'responsable_id');
     }
 
     public function creador()
