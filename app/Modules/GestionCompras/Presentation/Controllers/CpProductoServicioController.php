@@ -4,6 +4,7 @@ namespace App\Modules\GestionCompras\Presentation\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\GestionCompras\Application\UseCases\ProductoServicio\ListarProductoServicioUseCase;
+use App\Modules\GestionCompras\Application\UseCases\ProductoServicio\ListarTodosProductoServicioUseCase;
 use App\Modules\GestionCompras\Application\UseCases\ProductoServicio\CrearProductoServicioUseCase;
 use App\Modules\GestionCompras\Application\UseCases\ProductoServicio\ObtenerProductoServicioUseCase;
 use App\Modules\GestionCompras\Application\UseCases\ProductoServicio\ActualizarProductoServicioUseCase;
@@ -21,7 +22,8 @@ class CpProductoServicioController extends Controller
         protected CrearProductoServicioUseCase $crearUseCase,
         protected ObtenerProductoServicioUseCase $obtenerUseCase,
         protected ActualizarProductoServicioUseCase $actualizarUseCase,
-        protected EliminarProductoServicioUseCase $eliminarUseCase
+        protected EliminarProductoServicioUseCase $eliminarUseCase,
+        protected ListarTodosProductoServicioUseCase $listarTodosUseCase
     ) {}
 
     public function buscar(Request $request)
@@ -66,6 +68,22 @@ class CpProductoServicioController extends Controller
     {
         $items = $this->listarUseCase->execute();
         return ApiResponse::success($items, 'Lista de producto/servicio');
+    }
+
+    #[OA\Get(
+        path: '/api/gestion-compras/cp-productos-servicios/todos',
+        tags: ['CpProductoServicios'],
+        summary: 'Listar todos los productos y servicios',
+        description: 'Obtiene la lista completa de productos y servicios sin paginación ni límite.',
+        security: [['bearerAuth' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Lista completa de productos y servicios', content: new OA\JsonContent(ref: '#/components/schemas/ApiResponse'))
+        ]
+    )]
+    public function all()
+    {
+        $items = $this->listarTodosUseCase->execute();
+        return ApiResponse::success($items, 'Lista completa de productos y servicios');
     }
 
     #[OA\Post(

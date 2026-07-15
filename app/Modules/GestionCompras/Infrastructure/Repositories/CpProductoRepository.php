@@ -20,6 +20,11 @@ class CpProductoRepository
         return $query->limit(20)->get();
     }
 
+    public function getAllWithoutLimit()
+    {
+        return CpProducto::all();
+    }
+
     public function create(array $data)
     {
         return CpProducto::create($data);

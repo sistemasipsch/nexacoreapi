@@ -9,9 +9,11 @@ Route::prefix('gestion-compras')->middleware('auth:api')->group(function () {
     // Gestion Compras Generales
     Route::apiResource('cp-centro-costos', \App\Modules\GestionCompras\Presentation\Controllers\CpCentroCostoController::class);
     Route::apiResource('cp-dependencias', \App\Modules\GestionCompras\Presentation\Controllers\CpDependenciaController::class);
+    Route::get('cp-productos/todos', [\App\Modules\GestionCompras\Presentation\Controllers\CpProductoController::class, 'all']);
     Route::apiResource('cp-productos', \App\Modules\GestionCompras\Presentation\Controllers\CpProductoController::class);
     Route::get('cp-productos-servicios/buscar', [\App\Modules\GestionCompras\Presentation\Controllers\CpProductoServicioController::class, 'buscar']);
     Route::get('cp-productos-servicios/buscar-externo', [\App\Modules\GestionCompras\Presentation\Controllers\CpProductoServicioController::class, 'buscarExterno']);
+    Route::get('cp-productos-servicios/todos', [\App\Modules\GestionCompras\Presentation\Controllers\CpProductoServicioController::class, 'all']);
     Route::apiResource('cp-productos-servicios', \App\Modules\GestionCompras\Presentation\Controllers\CpProductoServicioController::class);
     Route::apiResource('cp-proveedores', \App\Modules\GestionCompras\Presentation\Controllers\CpProveedorController::class);
     Route::apiResource('cp-tipos-solicitud', \App\Modules\GestionCompras\Presentation\Controllers\CpTipoSolicitudController::class);

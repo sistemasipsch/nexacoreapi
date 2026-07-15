@@ -4,6 +4,7 @@ namespace App\Modules\GestionCompras\Presentation\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\GestionCompras\Application\UseCases\Producto\ListarProductoUseCase;
+use App\Modules\GestionCompras\Application\UseCases\Producto\ListarTodosProductosUseCase;
 use App\Modules\GestionCompras\Application\UseCases\Producto\CrearProductoUseCase;
 use App\Modules\GestionCompras\Application\UseCases\Producto\ObtenerProductoUseCase;
 use App\Modules\GestionCompras\Application\UseCases\Producto\ActualizarProductoUseCase;
@@ -21,7 +22,8 @@ class CpProductoController extends Controller
         protected CrearProductoUseCase $crearUseCase,
         protected ObtenerProductoUseCase $obtenerUseCase,
         protected ActualizarProductoUseCase $actualizarUseCase,
-        protected EliminarProductoUseCase $eliminarUseCase
+        protected EliminarProductoUseCase $eliminarUseCase,
+        protected ListarTodosProductosUseCase $listarTodosUseCase
     ) {}
 
     #[OA\Get(
@@ -42,6 +44,22 @@ class CpProductoController extends Controller
         $search = $request->query('search');
         $items = $this->listarUseCase->execute($search);
         return ApiResponse::success($items, 'Lista de productos');
+    }
+
+    #[OA\Get(
+        path: '/api/gestion-compras/cp-productos/todos',
+        tags: ['CpProductos'],
+        summary: 'Listar todos los productos',
+        description: 'Obtiene la lista completa de productos sin paginación ni límite.',
+        security: [['bearerAuth' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Lista completa de productos', content: new OA\JsonContent(ref: '#/components/schemas/ApiResponse'))
+        ]
+    )]
+    public function all()
+    {
+        $items = $this->listarTodosUseCase->execute();
+        return ApiResponse::success($items, 'Lista completa de productos');
     }
 
     #[OA\Post(

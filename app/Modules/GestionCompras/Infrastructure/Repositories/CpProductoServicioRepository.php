@@ -20,6 +20,11 @@ class CpProductoServicioRepository
         return $query->paginate($perPage);
     }
 
+    public function getAllWithoutLimit()
+    {
+        return CpProductoServicio::all();
+    }
+
     public function create(array $data)
     {
         return CpProductoServicio::create($data);
