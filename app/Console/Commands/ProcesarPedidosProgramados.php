@@ -38,7 +38,7 @@ class ProcesarPedidosProgramados extends Command
     {
         $this->info('Iniciando procesamiento de pedidos programados...');
         
-        $hoy = Carbon::now()->format('Y-m-d H:i:s');
+        $hoy = Carbon::now('America/Bogota')->format('Y-m-d H:i:s');
         $pendientes = $repository->obtenerProgramadosPendientes($hoy);
 
         if (empty($pendientes)) {
