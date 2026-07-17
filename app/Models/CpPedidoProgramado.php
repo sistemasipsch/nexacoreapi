@@ -21,7 +21,6 @@ class CpPedidoProgramado extends Model
 
     protected $casts = [
         'datos_pedido' => 'array',
-        'fecha_programada' => 'datetime',
     ];
 
     public function creador()
@@ -34,5 +33,17 @@ class CpPedidoProgramado extends Model
         if (!$value) return null;
         $path = str_replace(['storage/', 'public/'], '', $value);
         return url('storage/' . $path);
+    }
+
+    public function getFechaProgramadaAttribute($value)
+    {
+        if (!$value) return null;
+        
+        // La fecha en BD está guardada en America/Bogota.
+        // Al enviarla (ej. a una API JSON), la convertimos a formato UTC ISO8601
+        // para que el frontend no le aplique un desfase doble.
+        return \Carbon\Carbon::createFromFormat('Y-m-d H:i:s', $value, 'America/Bogota')
+            ->setTimezone('UTC')
+            ->format('Y-m-d\TH:i:s.u\Z');
     }
 }
