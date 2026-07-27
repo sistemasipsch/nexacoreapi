@@ -66,7 +66,15 @@ class CpConsolidadoExport
 
             // Format items description: Name (Qty), Name (Qty)...
             $descripcion = $pedido->items->map(function ($item) {
-                return "{$item->nombre} ({$item->cantidad})";
+                if ($item->fecha_entregado) {
+                    $fecha = \Carbon\Carbon::parse($item->fecha_entregado, 'UTC')
+                        ->setTimezone('America/Bogota')
+                        ->format('d/m/Y g:i A');
+                    $fechaEntregado = ' - Entregado: ' . $fecha;
+                } else {
+                    $fechaEntregado = '';
+                }
+                return "{$item->nombre} ({$item->cantidad}){$fechaEntregado}";
             })->implode(', ');
 
             $sheet->setCellValue("A{$row}", $pedido->fecha_solicitud);

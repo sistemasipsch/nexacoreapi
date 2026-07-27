@@ -13,6 +13,7 @@ use App\Modules\GestionInfraestructura\Application\UseCases\Mantenimiento\Obtene
 use App\Modules\GestionInfraestructura\Application\UseCases\Mantenimiento\MarcarMantenimientoRevisadoUseCase;
 use App\Modules\GestionInfraestructura\Application\UseCases\Mantenimiento\ExportarMantenimientosExcelUseCase;
 use App\Modules\GestionInfraestructura\Application\UseCases\Mantenimiento\ExportarMisMantenimientosExcelUseCase;
+use App\Modules\GestionInfraestructura\Application\UseCases\Mantenimiento\ExportarMantenimientosTecnicoExcelUseCase;
 use App\Modules\GestionInfraestructura\Application\UseCases\Mantenimiento\ObtenerEstadisticasMantenimientoUseCase;
 use App\Services\PermissionService;
 use App\Responses\ApiResponse;
@@ -34,6 +35,7 @@ class MantenimientoController extends Controller
         protected MarcarMantenimientoRevisadoUseCase $marcarRevisadoUseCase,
         protected ExportarMantenimientosExcelUseCase $exportarUseCase,
         protected ExportarMisMantenimientosExcelUseCase $exportarMisMantenimientosUseCase,
+        protected ExportarMantenimientosTecnicoExcelUseCase $exportarTecnicoUseCase,
         protected ObtenerEstadisticasMantenimientoUseCase $estadisticasUseCase
     ) {}
 
@@ -164,6 +166,33 @@ class MantenimientoController extends Controller
         $fechaFin = $request->query('fecha_fin');
 
         return $this->exportarMisMantenimientosUseCase->execute($fechaInicio, $fechaFin, $user, $export);
+    }
+
+    #[OA\Get(
+        path: '/api/mantenimientos/tecnico/{tecnico_id}/exportar-excel',
+        tags: ['Mantenimientos'],
+        summary: 'Exportar mantenimientos de un técnico a Excel',
+        description: 'Exporta los mantenimientos que tienen asignado a un técnico específico en su agenda. Permite filtrar por fecha_inicio y fecha_fin. Requiere permiso mantenimiento.listar.',
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'tecnico_id', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'fecha_inicio', in: 'query', required: false, schema: new OA\Schema(type: 'string', format: 'date')),
+            new OA\Parameter(name: 'fecha_fin', in: 'query', required: false, schema: new OA\Schema(type: 'string', format: 'date'))
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Archivo Excel de mantenimientos del técnico'),
+            new OA\Response(response: 403, description: 'No autorizado')
+        ]
+    )]
+    public function exportMantenimientosTecnicoExcel(Request $request, $tecnicoId, MantenimientoExport $export)
+    {
+        $this->permissionService->authorize('mantenimiento.listar');
+        $user = \Illuminate\Support\Facades\Auth::guard('api')->user();
+
+        $fechaInicio = $request->query('fecha_inicio');
+        $fechaFin = $request->query('fecha_fin');
+
+        return $this->exportarTecnicoUseCase->execute($fechaInicio, $fechaFin, $tecnicoId, $user, $export);
     }
 
     public function getStatistics(Request $request)

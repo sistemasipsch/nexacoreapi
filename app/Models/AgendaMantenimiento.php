@@ -27,8 +27,6 @@ class AgendaMantenimiento extends Model
         'fecha_creacion' => 'datetime',
     ];
 
-    // Relationships
-
     public function mantenimiento()
     {
         return $this->belongsTo(Mantenimiento::class, 'mantenimiento_id');
