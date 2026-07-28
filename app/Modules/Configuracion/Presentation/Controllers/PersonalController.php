@@ -77,23 +77,21 @@ class PersonalController extends Controller
         return ApiResponse::success($resultados, 'Resultados locales');
     }
 
-    public function buscarExterno(Request $request)
+    public function buscarExterno(Request $request, \App\Modules\Gateway\Application\UseCases\BuscarTercerosGatewayUseCase $buscarTercerosUseCase)
     {
         $termino = $request->input('termino') ?? $request->input('q');
         if (!$termino) return ApiResponse::error('Término requerido', 400);
 
-        // Dejar simulado o llamar a Kubapp Service directamente
-        $kubapp = app(\App\Services\KubappService::class);
-        $kubappResults = $kubapp->buscarPorNombre($termino);
+        $kubappResults = $buscarTercerosUseCase->execute($termino);
         
         $synced = collect();
-        if (!empty($kubappResults)) {
+        if ($kubappResults->isNotEmpty()) {
             foreach ($kubappResults as $tercero) {
-                if (empty($tercero['nit']) || empty($tercero['nombre'])) continue;
+                if (empty($tercero->nit) || empty($tercero->nombre)) continue;
                 try {
                     $personal = \App\Models\Personal::firstOrCreate(
-                        ['cedula' => $tercero['nit']],
-                        ['nombre' => $tercero['nombre'], 'telefono' => null, 'cargo_id' => null]
+                        ['cedula' => $tercero->nit],
+                        ['nombre' => $tercero->nombre, 'telefono' => null, 'cargo_id' => null]
                     );
                     $personal->load('cargo');
                     $synced->push($personal);

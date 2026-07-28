@@ -10,6 +10,7 @@ Route::prefix('gestion-compras')->middleware('auth:api')->group(function () {
     Route::apiResource('cp-centro-costos', \App\Modules\GestionCompras\Presentation\Controllers\CpCentroCostoController::class);
     Route::apiResource('cp-dependencias', \App\Modules\GestionCompras\Presentation\Controllers\CpDependenciaController::class);
     Route::get('cp-productos/todos', [\App\Modules\GestionCompras\Presentation\Controllers\CpProductoController::class, 'all']);
+    Route::post('cp-productos/sincronizar', [\App\Modules\GestionCompras\Presentation\Controllers\CpProductoController::class, 'sincronizar']);
     Route::apiResource('cp-productos', \App\Modules\GestionCompras\Presentation\Controllers\CpProductoController::class);
     Route::get('cp-productos-servicios/buscar', [\App\Modules\GestionCompras\Presentation\Controllers\CpProductoServicioController::class, 'buscar']);
     Route::get('cp-productos-servicios/buscar-externo', [\App\Modules\GestionCompras\Presentation\Controllers\CpProductoServicioController::class, 'buscarExterno']);

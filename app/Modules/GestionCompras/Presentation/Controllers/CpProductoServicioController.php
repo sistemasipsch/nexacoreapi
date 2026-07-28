@@ -40,16 +40,22 @@ class CpProductoServicioController extends Controller
         return ApiResponse::success($resultados, 'Resultados locales');
     }
 
-    public function buscarExterno(Request $request)
+    public function buscarExterno(Request $request, \App\Modules\Gateway\Application\UseCases\BuscarArticulosGatewayUseCase $buscarArticulosUseCase)
     {
         $termino = $request->input('termino') ?? $request->input('q');
         if (!$termino) {
             return ApiResponse::error('Término requerido', 400);
         }
 
-        $kubapp = app(\App\Services\KubappService::class);
-        $kubapp->buscarArticulo($termino);
+        $articulos = $buscarArticulosUseCase->execute($termino);
         
+        foreach ($articulos as $item) {
+            \App\Models\CpProductoServicio::updateOrCreate(
+                ['codigo_producto' => $item->codigo],
+                ['nombre' => $item->nombre]
+            );
+        }
+
         $synced = \App\Models\CpProductoServicio::where('nombre', 'like', "%$termino%")
             ->orWhere('codigo_producto', 'like', "%$termino%")
             ->get();

@@ -6,7 +6,7 @@ use App\Models\CpProducto;
 
 class CpProductoRepository
 {
-    public function getAll(?string $search = null)
+    public function getAll(?string $search = null, int $perPage = 20)
     {
         $query = CpProducto::query();
 
@@ -17,7 +17,7 @@ class CpProductoRepository
             });
         }
 
-        return $query->limit(20)->get();
+        return $query->paginate($perPage);
     }
 
     public function getAllWithoutLimit()
@@ -28,6 +28,14 @@ class CpProductoRepository
     public function create(array $data)
     {
         return CpProducto::create($data);
+    }
+
+    public function updateOrCreateByCodigo($codigo, array $data)
+    {
+        return CpProducto::updateOrCreate(
+            ['codigo' => $codigo],
+            $data
+        );
     }
 
     public function find($id)

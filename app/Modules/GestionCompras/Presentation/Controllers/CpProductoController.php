@@ -30,10 +30,12 @@ class CpProductoController extends Controller
         path: '/api/gestion-compras/cp-productos',
         tags: ['CpProductos'],
         summary: 'Listar productos',
-        description: 'Obtiene la lista de productos paginada (máximo 20). Permite buscar por nombre o código del producto.',
+        description: 'Obtiene la lista de productos con paginación dinámica. Permite buscar por nombre o código del producto. El límite por defecto es 20 y el máximo es 200.',
         security: [['bearerAuth' => []]],
         parameters: [
-            new OA\Parameter(name: 'search', in: 'query', required: false, description: 'Buscar por nombre o código del producto', schema: new OA\Schema(type: 'string'))
+            new OA\Parameter(name: 'search', in: 'query', required: false, description: 'Buscar por nombre o código del producto', schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'per_page', in: 'query', required: false, description: 'Cantidad de registros por página (por defecto 20, máximo 200)', schema: new OA\Schema(type: 'integer', default: 20)),
+            new OA\Parameter(name: 'page', in: 'query', required: false, description: 'Número de página', schema: new OA\Schema(type: 'integer', default: 1))
         ],
         responses: [
             new OA\Response(response: 200, description: 'Lista de productos', content: new OA\JsonContent(ref: '#/components/schemas/ApiResponse'))
@@ -42,7 +44,10 @@ class CpProductoController extends Controller
     public function index(Request $request)
     {
         $search = $request->query('search');
-        $items = $this->listarUseCase->execute($search);
+        $perPage = (int) $request->query('per_page', 20);
+        $perPage = min(max($perPage, 1), 200);
+
+        $items = $this->listarUseCase->execute($search, $perPage);
         return ApiResponse::success($items, 'Lista de productos');
     }
 
@@ -129,6 +134,42 @@ class CpProductoController extends Controller
             return ApiResponse::success(null, ucfirst('producto') . ' eliminado exitosamente');
         } catch (\Exception $e) {
             return ApiResponse::error('Error al eliminar: ' . $e->getMessage(), 500);
+        }
+    }
+
+    #[OA\Post(
+        path: '/api/gestion-compras/cp-productos/sincronizar',
+        tags: ['CpProductos'],
+        summary: 'Sincronizar producto desde sistema externo',
+        description: 'Busca un producto por su código en el sistema externo (Gateway) y lo crea o actualiza en la base de datos local.',
+        security: [['bearerAuth' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['codigo'],
+                properties: [
+                    new OA\Property(property: 'codigo', type: 'string', example: 'ORD966', description: 'Código del producto a sincronizar')
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Producto sincronizado', content: new OA\JsonContent(ref: '#/components/schemas/ApiResponse')),
+            new OA\Response(response: 400, description: 'Error de validación o no encontrado en sistema externo')
+        ]
+    )]
+    public function sincronizar(Request $request, \App\Modules\GestionCompras\Application\UseCases\Producto\SincronizarProductoUseCase $sincronizarUseCase)
+    {
+        $this->permissionService->authorize('cp_producto.crear'); // Podemos usar el permiso de crear o uno especifico
+
+        $request->validate([
+            'codigo' => 'required|string'
+        ]);
+
+        try {
+            $producto = $sincronizarUseCase->execute($request->input('codigo'));
+            return ApiResponse::success($producto, 'Producto sincronizado con éxito');
+        } catch (\Exception $e) {
+            return ApiResponse::error($e->getMessage(), 400);
         }
     }
 }

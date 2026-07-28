@@ -25,6 +25,11 @@ class AppServiceProvider extends ServiceProvider
             \App\Modules\GestionSistemas\Domain\Repositories\ImagenMensualRepositoryInterface::class,
             \App\Modules\GestionSistemas\Infrastructure\Repositories\ImagenMensualRepository::class
         );
+
+        $this->app->bind(
+            \App\Modules\Gateway\Domain\Contracts\GatewayRepositoryInterface::class,
+            \App\Modules\Gateway\Infrastructure\Repositories\KubappGatewayRepository::class
+        );
     }
 
     /**
