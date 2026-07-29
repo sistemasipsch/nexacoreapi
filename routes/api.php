@@ -39,25 +39,6 @@ Route::post('/debug-login', function (\Illuminate\Http\Request $request) {
     ]);
 });
 
-// DB CONNECTION TEST
-Route::get('/db-test', function () {
-    try {
-        \Illuminate\Support\Facades\DB::connection()->getPdo();
-        $dbName = \Illuminate\Support\Facades\DB::connection()->getDatabaseName();
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Conexión a base de datos exitosa',
-            'database' => $dbName
-        ]);
-    } catch (\Exception $e) {
-        return response()->json([
-            'status' => 'error',
-            'message' => 'Error al conectar a la base de datos',
-            'error' => $e->getMessage()
-        ], 500);
-    }
-});
-
 
 Route::group(['middleware' => 'api'], function () {
 
