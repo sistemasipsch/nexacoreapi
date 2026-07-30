@@ -141,20 +141,20 @@ class CpProductoController extends Controller
         path: '/api/gestion-compras/cp-productos/sincronizar',
         tags: ['CpProductos'],
         summary: 'Sincronizar producto desde sistema externo',
-        description: 'Busca un producto por su código en el sistema externo (Gateway) y lo crea o actualiza en la base de datos local.',
+        description: 'Busca un producto por su código en el sistema externo (Gateway), validando que el código comience con un prefijo permitido (ACT, IMC-EC), y lo crea o actualiza en la base de datos local.',
         security: [['bearerAuth' => []]],
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(
                 required: ['codigo'],
                 properties: [
-                    new OA\Property(property: 'codigo', type: 'string', example: 'ORD966', description: 'Código del producto a sincronizar')
+                    new OA\Property(property: 'codigo', type: 'string', example: 'ACT-001', description: 'Código del producto a sincronizar')
                 ]
             )
         ),
         responses: [
             new OA\Response(response: 200, description: 'Producto sincronizado', content: new OA\JsonContent(ref: '#/components/schemas/ApiResponse')),
-            new OA\Response(response: 400, description: 'Error de validación o no encontrado en sistema externo')
+            new OA\Response(response: 400, description: 'Error de validación de prefijo o no encontrado en sistema externo')
         ]
     )]
     public function sincronizar(Request $request, \App\Modules\GestionCompras\Application\UseCases\Producto\SincronizarProductoUseCase $sincronizarUseCase)
@@ -168,6 +168,10 @@ class CpProductoController extends Controller
         try {
             $producto = $sincronizarUseCase->execute($request->input('codigo'));
             return ApiResponse::success($producto, 'Producto sincronizado con éxito');
+        } catch (\App\Exceptions\InvalidPrefixException $e) {
+            return ApiResponse::error($e->getMessage(), 400, [
+                'prefijos_permitidos' => $e->getAllowedPrefixes()
+            ]);
         } catch (\Exception $e) {
             return ApiResponse::error($e->getMessage(), 400);
         }

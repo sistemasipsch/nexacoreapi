@@ -15,6 +15,7 @@ Route::prefix('gestion-compras')->middleware('auth:api')->group(function () {
     Route::get('cp-productos-servicios/buscar', [\App\Modules\GestionCompras\Presentation\Controllers\CpProductoServicioController::class, 'buscar']);
     Route::get('cp-productos-servicios/buscar-externo', [\App\Modules\GestionCompras\Presentation\Controllers\CpProductoServicioController::class, 'buscarExterno']);
     Route::get('cp-productos-servicios/todos', [\App\Modules\GestionCompras\Presentation\Controllers\CpProductoServicioController::class, 'all']);
+    Route::post('cp-productos-servicios/sincronizar', [\App\Modules\GestionCompras\Presentation\Controllers\CpProductoServicioController::class, 'sincronizar']);
     Route::apiResource('cp-productos-servicios', \App\Modules\GestionCompras\Presentation\Controllers\CpProductoServicioController::class);
     Route::apiResource('cp-proveedores', \App\Modules\GestionCompras\Presentation\Controllers\CpProveedorController::class);
     Route::apiResource('cp-tipos-solicitud', \App\Modules\GestionCompras\Presentation\Controllers\CpTipoSolicitudController::class);

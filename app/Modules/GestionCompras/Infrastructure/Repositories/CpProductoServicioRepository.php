@@ -30,6 +30,15 @@ class CpProductoServicioRepository
         return CpProductoServicio::create($data);
     }
 
+    public function updateOrCreateByCodigoProducto(string $codigoProducto, array $data)
+    {
+        return CpProductoServicio::updateOrCreate(
+            ['codigo_producto' => $codigoProducto],
+            $data
+        );
+    }
+
+
     public function find($id)
     {
         return CpProductoServicio::find($id);

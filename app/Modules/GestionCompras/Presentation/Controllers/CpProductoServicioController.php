@@ -161,4 +161,45 @@ class CpProductoServicioController extends Controller
             return ApiResponse::error('Error al eliminar: ' . $e->getMessage(), 500);
         }
     }
+
+    #[OA\Post(
+        path: '/api/gestion-compras/cp-productos-servicios/sincronizar',
+        tags: ['CpProductoServicios'],
+        summary: 'Sincronizar producto/servicio desde sistema externo',
+        description: 'Busca un producto/servicio por su código en el sistema externo (Gateway), validando que el código comience con un prefijo permitido (ACT, IMC-EC), y lo crea o actualiza en la base de datos local. Requiere permiso cp_producto_servicio.crear.',
+        security: [['bearerAuth' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['codigo'],
+                properties: [
+                    new OA\Property(property: 'codigo', type: 'string', example: 'ACT-001', description: 'Código del producto/servicio a sincronizar')
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Producto/servicio sincronizado', content: new OA\JsonContent(ref: '#/components/schemas/ApiResponse')),
+            new OA\Response(response: 400, description: 'Error de validación de prefijo o no encontrado en sistema externo'),
+            new OA\Response(response: 403, description: 'Prohibido')
+        ]
+    )]
+    public function sincronizar(Request $request, \App\Modules\GestionCompras\Application\UseCases\ProductoServicio\SincronizarProductoServicioUseCase $sincronizarUseCase)
+    {
+        $this->permissionService->authorize('cp_producto_servicio.crear');
+
+        $request->validate([
+            'codigo' => 'required|string'
+        ]);
+
+        try {
+            $item = $sincronizarUseCase->execute($request->input('codigo'));
+            return ApiResponse::success($item, 'Producto/servicio sincronizado con éxito');
+        } catch (\App\Exceptions\InvalidPrefixException $e) {
+            return ApiResponse::error($e->getMessage(), 400, [
+                'prefijos_permitidos' => $e->getAllowedPrefixes()
+            ]);
+        } catch (\Exception $e) {
+            return ApiResponse::error($e->getMessage(), 400);
+        }
+    }
 }

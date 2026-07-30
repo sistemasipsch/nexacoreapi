@@ -1,20 +1,20 @@
 <?php
 
-namespace App\Modules\GestionCompras\Application\UseCases\Producto;
+namespace App\Modules\GestionCompras\Application\UseCases\ProductoServicio;
 
-use App\Modules\GestionCompras\Infrastructure\Repositories\CpProductoRepository;
+use App\Modules\GestionCompras\Infrastructure\Repositories\CpProductoServicioRepository;
 use App\Modules\Gateway\Application\UseCases\BuscarArticulosGatewayUseCase;
 use Illuminate\Support\Str;
 use Exception;
 
 use App\Exceptions\InvalidPrefixException;
 
-class SincronizarProductoUseCase
+class SincronizarProductoServicioUseCase
 {
-    protected const PREFIJOS_PERMITIDOS = ['DM', 'MED','ALMG','VAC'];
+    protected const PREFIJOS_PERMITIDOS = ['ACT','IMC-','ALM'];
 
     public function __construct(
-        protected CpProductoRepository $repository,
+        protected CpProductoServicioRepository $repository,
         protected BuscarArticulosGatewayUseCase $buscarGatewayUseCase
     ) {}
 
@@ -32,18 +32,18 @@ class SincronizarProductoUseCase
         // 2. Buscamos el artículo en el Gateway por su código
         $articulos = $this->buscarGatewayUseCase->execute($codigo);
 
-        // 2. Filtramos para asegurarnos de que el código coincida exactamente
+        // 3. Filtramos para asegurarnos de que el código coincida exactamente
         $articuloExterno = $articulos->firstWhere('codigo', $codigo);
 
         if (!$articuloExterno) {
-            throw new Exception("El producto con código {$codigo} no fue encontrado en el sistema externo.");
+            throw new Exception("El producto/servicio con código {$codigo} no fue encontrado en el sistema externo.");
         }
 
-        // 3. Sincronizamos en la BD local (si existe, actualiza el nombre; si no, lo crea)
-        $producto = $this->repository->updateOrCreateByCodigo($codigo, [
+        // 4. Sincronizamos en la BD local (si existe, actualiza el nombre; si no, lo crea)
+        $productoServicio = $this->repository->updateOrCreateByCodigoProducto($codigo, [
             'nombre' => $articuloExterno->nombre
         ]);
 
-        return $producto;
+        return $productoServicio;
     }
 }
