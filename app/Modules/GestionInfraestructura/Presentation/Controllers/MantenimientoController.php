@@ -20,6 +20,7 @@ use App\Responses\ApiResponse;
 use App\Exports\MantenimientoExport;
 use Illuminate\Http\Request;
 use OpenApi\Attributes as OA;
+use App\Modules\GestionInfraestructura\Application\DTOs\Mantenimiento\FiltroMantenimientosDTO;
 
 class MantenimientoController extends Controller
 {
@@ -112,21 +113,43 @@ class MantenimientoController extends Controller
         return ApiResponse::error('Mantenimiento no encontrado o no se pudo eliminar', 404);
     }
 
-    public function misMantenimientos()
+    #[OA\Get(
+        path: '/api/mantenimientos/mis-mantenimientos',
+        tags: ['Mantenimientos'],
+        summary: 'Obtener mis mantenimientos',
+        description: 'Retorna los mantenimientos asignados al usuario (ya sea como coordinador o lista completa según permisos). Soporta paginación y filtros dinámicos.',
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'page', in: 'query', required: false, description: 'Número de página', schema: new OA\Schema(type: 'integer', default: 1)),
+            new OA\Parameter(name: 'limit', in: 'query', required: false, description: 'Cantidad de registros por página (min 20, max 300)', schema: new OA\Schema(type: 'integer', default: 20)),
+            new OA\Parameter(name: 'tecnico', in: 'query', required: false, description: 'Filtrar por nombre del técnico (creador del mantenimiento con rol técnico)', schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'fecha_inicio', in: 'query', required: false, description: 'Filtrar mantenimientos creados desde esta fecha (YYYY-MM-DD)', schema: new OA\Schema(type: 'string', format: 'date')),
+            new OA\Parameter(name: 'fecha_fin', in: 'query', required: false, description: 'Filtrar mantenimientos creados hasta esta fecha (YYYY-MM-DD)', schema: new OA\Schema(type: 'string', format: 'date')),
+            new OA\Parameter(name: 'sede_id', in: 'query', required: false, description: 'Filtrar por ID de sede', schema: new OA\Schema(type: 'integer'))
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Lista paginada de mantenimientos'),
+            new OA\Response(response: 401, description: 'No autenticado')
+        ]
+    )]
+    public function misMantenimientos(Request $request)
     {
         $user = \Illuminate\Support\Facades\Auth::guard('api')->user();
+        $dto = new FiltroMantenimientosDTO($request);
 
         if ($this->permissionService->check($user, 'mantenimiento.listar_todos')) {
-            $mantenimientos = $this->listarUseCase->execute();
+            $mantenimientos = $this->listarUseCase->execute($dto);
             return ApiResponse::success($mantenimientos, 'Todos los mantenimientos');
         }
 
         if ($this->permissionService->check($user, 'mantenimiento.seleccion_coordinador')) {
-            $mantenimientos = $this->porCoordinadorUseCase->execute($user->id);
+            $mantenimientos = $this->porCoordinadorUseCase->execute($user->id, $dto);
             return ApiResponse::success($mantenimientos, 'Mantenimientos como coordinador');
         }
 
-        return ApiResponse::success([], 'No tienes registros asignados bajo tu cargo');
+        // Si no es coordinador ni tiene listar_todos, devolvemos los que él creó (Técnico)
+        $mantenimientos = $this->porTecnicoUseCase->execute($user->id, $dto);
+        return ApiResponse::success($mantenimientos, 'Mis mantenimientos como creador');
     }
 
     public function exportExcel(Request $request, MantenimientoExport $export)

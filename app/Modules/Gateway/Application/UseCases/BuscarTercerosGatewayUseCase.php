@@ -13,6 +13,8 @@ class BuscarTercerosGatewayUseCase
     {
         $filtros = [];
         if ($nombre) {
+            // Se envía como 'q' (y 'nombre' por compatibilidad) para que el API busque en todos los nombres y apellidos
+            $filtros['q'] = $nombre;
             $filtros['nombre'] = $nombre;
         }
 
