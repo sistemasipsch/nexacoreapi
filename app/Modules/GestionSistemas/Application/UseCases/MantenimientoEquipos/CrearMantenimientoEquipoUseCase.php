@@ -19,12 +19,24 @@ class CrearMantenimientoEquipoUseCase
 
     public function execute(array $data)
     {
+        // Cast de booleanos que pueden venir como string 'true'/'false' en FormData
+        $data['repuesto'] = filter_var($data['repuesto'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $data['use_stored_signature_sistemas'] = filter_var($data['use_stored_signature_sistemas'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
         // Campos de limpieza por defecto a false si no se envían
         $data['cpu'] = filter_var($data['cpu'] ?? false, FILTER_VALIDATE_BOOLEAN);
         $data['pantalla'] = filter_var($data['pantalla'] ?? false, FILTER_VALIDATE_BOOLEAN);
         $data['teclado'] = filter_var($data['teclado'] ?? false, FILTER_VALIDATE_BOOLEAN);
         $data['mouse'] = filter_var($data['mouse'] ?? false, FILTER_VALIDATE_BOOLEAN);
         $data['unidad_cd'] = filter_var($data['unidad_cd'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
+        // Procesar Fotos si vienen como UploadedFile
+        if (isset($data['foto_antes']) && $data['foto_antes'] instanceof \Illuminate\Http\UploadedFile) {
+            $data['foto_antes'] = $data['foto_antes']->store('pcMantenimientos', 'public');
+        }
+        if (isset($data['foto_despues']) && $data['foto_despues'] instanceof \Illuminate\Http\UploadedFile) {
+            $data['foto_despues'] = $data['foto_despues']->store('pcMantenimientos', 'public');
+        }
 
         // Procesar Firmas
         if (!empty($data['firma_personal_cargo'])) {

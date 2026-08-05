@@ -56,7 +56,7 @@ class MantenimientoController extends Controller
             'dependencia' => 'nullable|string|max:255',
             'sede_id' => 'nullable|exists:sedes,id',
             'coordinador_id' => 'nullable|exists:usuarios,id',
-            'imagen' => 'nullable|file|image|max:5120',
+            'imagen' => 'required|file|image|max:5120',
             'imagen2' => 'nullable|file|image|max:5120',
             'descripcion' => 'nullable|string',
         ]);

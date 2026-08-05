@@ -26,7 +26,11 @@ class CrearMantenimientoUseCase
             }
             if (!empty($paths)) {
                 $data['imagen'] = implode(',', $paths);
+            } else {
+                throw new \Exception('Se requiere al menos una imagen (evidencia) para crear el mantenimiento.', 422);
             }
+        } else {
+            throw new \Exception('Se requiere al menos una imagen (evidencia) para crear el mantenimiento.', 422);
         }
 
         return Mantenimiento::create($data);

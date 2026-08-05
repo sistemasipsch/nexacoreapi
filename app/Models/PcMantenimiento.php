@@ -29,7 +29,9 @@ class PcMantenimiento extends Model
         'pantalla',
         'teclado',
         'mouse',
-        'unidad_cd'
+        'unidad_cd',
+        'foto_antes',
+        'foto_despues'
     ];
 
     protected $casts = [
