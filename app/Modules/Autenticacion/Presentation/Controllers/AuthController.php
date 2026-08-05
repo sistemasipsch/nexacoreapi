@@ -103,7 +103,8 @@ class AuthController extends Controller
                     'userAgent' => $request->userAgent(),
                     'time' => now()->format('d/m/Y H:i:s A'),
                 ];
-                Mail::to($user->correo)->send(new LoginNotification($user, $details));
+                // TEMPORALMENTE COMENTADO: Evita que el servidor se cuelgue intentando enviar el correo por SMTP
+                // Mail::to($user->correo)->send(new LoginNotification($user, $details));
             }
         } catch (\Exception $e) {
             Log::error('Error sending login alert email: ' . $e->getMessage());
