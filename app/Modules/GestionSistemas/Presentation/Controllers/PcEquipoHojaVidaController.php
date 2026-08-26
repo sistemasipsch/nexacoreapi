@@ -41,7 +41,7 @@ class PcEquipoHojaVidaController extends Controller
                 return ApiResponse::error('Equipo no encontrado', 404);
             }
 
-            return ApiResponse::success($data, 'Hoja de vida del equipo (DDD)');
+            return ApiResponse::success($data, 'Hoja de vida del equipo');
         } catch (\Exception $e) {
             return ApiResponse::error('Error al obtener hoja de vida: ' . $e->getMessage(), 500);
         }

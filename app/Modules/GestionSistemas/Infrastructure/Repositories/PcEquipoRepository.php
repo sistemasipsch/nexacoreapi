@@ -79,8 +79,8 @@ class PcEquipoRepository implements PcEquipoRepositoryInterface
         $equipo = PcEquipo::with([
             'sede',
             'area', 
-            'responsable',
-            'creador',
+            'responsable:id,nombre',
+            'creador:id,nombre_completo',
             'caracteristicasTecnicas',
             'licenciasSoftware',
             'entregas' => function ($q) {
@@ -100,6 +100,16 @@ class PcEquipoRepository implements PcEquipoRepositoryInterface
             $entrega->load('perifericos.inventario');
             $devuelto = PcDevuelto::where('entrega_id', $entrega->id)->first();
             $entrega->setAttribute('devolucion', $devuelto);
+        });
+
+        if ($equipo->creador) {
+            $equipo->creador->makeHidden(['is_online', 'activity_status']);
+        }
+
+        $equipo->mantenimientos->each(function ($mantenimiento) {
+            if ($mantenimiento->creador) {
+                $mantenimiento->creador->makeHidden(['is_online', 'activity_status']);
+            }
         });
 
         $mantoInfo = $this->calculateMaintenanceInfo($equipo);
