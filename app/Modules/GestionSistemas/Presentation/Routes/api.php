@@ -24,6 +24,7 @@ Route::middleware('auth:api')->prefix('gestion-sistemas')->group(function () {
 
     // PcEquipos
     Route::get('/pc-equipos/buscar', [\App\Modules\GestionSistemas\Presentation\Controllers\PcEquipoController::class, 'buscar']);
+    Route::match(['put', 'post'], '/pc-equipos/{id}', [\App\Modules\GestionSistemas\Presentation\Controllers\PcEquipoController::class, 'update']);
     Route::apiResource('/pc-equipos', \App\Modules\GestionSistemas\Presentation\Controllers\PcEquipoController::class);
     Route::get('/pc-equipos/{id}/hoja-vida', [\App\Modules\GestionSistemas\Presentation\Controllers\PcEquipoHojaVidaController::class, 'show']);
     Route::get('/pc-equipos/{id}/hoja-vida/exportar-excel', [\App\Modules\GestionSistemas\Presentation\Controllers\PcEquipoHojaVidaController::class, 'exportarExcel']);

@@ -65,13 +65,13 @@ class PcEquipoController extends Controller
             'modelo' => 'nullable|string|max:255',
             'tipo' => 'nullable|string|max:255',
             'propiedad' => 'nullable|in:empleado,empresa',
-            'ip_fija' => 'required|ipv4',
+            'ip_fija' => 'nullable|ipv4',
             'sede_id' => 'nullable|integer|exists:sedes,id',
             'area_id' => 'nullable|integer|exists:areas,id',
             'responsable_id' => 'nullable|integer|exists:personal,id',
             'estado' => 'nullable|string|max:255',
             'fecha_ingreso' => 'nullable|date',
-            'imagen' => 'nullable|image|max:5120',
+            'imagen' => 'nullable|file|mimes:jpeg,png,jpg,webp,gif,svg|max:5120',
             'fecha_entrega' => 'nullable|date',
             'descripcion_general' => 'nullable|string',
             'garantia_meses' => 'nullable|integer',
@@ -90,8 +90,7 @@ class PcEquipoController extends Controller
             }
 
             if ($request->hasFile('imagen')) {
-                $path = $request->file('imagen')->store('pcEquipos', 'public');
-                $validated['imagen_url'] = 'storage/' . $path;
+                $validated['imagen'] = $request->file('imagen');
             }
 
             $useCase = new CrearPcEquipoUseCase($this->repository);
@@ -161,13 +160,14 @@ class PcEquipoController extends Controller
             'modelo' => 'nullable|string|max:255',
             'tipo' => 'nullable|string|max:255',
             'propiedad' => 'nullable|in:empleado,empresa',
-            'ip_fija' => 'required|ipv4',
+            'ip_fija' => 'sometimes|nullable|ipv4',
             'sede_id' => 'nullable|integer|exists:sedes,id',
             'area_id' => 'nullable|integer|exists:areas,id',
             'responsable_id' => 'nullable|integer|exists:personal,id',
             'estado' => 'nullable|string|max:255',
             'fecha_ingreso' => 'nullable|date',
-            'imagen' => 'nullable|image|max:5120',
+            'imagen' => 'nullable|file|mimes:jpeg,png,jpg,webp,gif,svg|max:5120',
+            'eliminar_imagen' => 'nullable|boolean',
             'fecha_entrega' => 'nullable|date',
             'descripcion_general' => 'nullable|string',
             'garantia_meses' => 'nullable|integer',
@@ -180,15 +180,7 @@ class PcEquipoController extends Controller
 
         try {
             if ($request->hasFile('imagen')) {
-                if ($item->imagen_url) {
-                    $oldPath = str_replace('storage/', '', $item->imagen_url);
-                    if (Storage::disk('public')->exists($oldPath)) {
-                        Storage::disk('public')->delete($oldPath);
-                    }
-                }
-
-                $path = $request->file('imagen')->store('pcEquipos', 'public');
-                $validated['imagen_url'] = 'storage/' . $path;
+                $validated['imagen'] = $request->file('imagen');
             }
 
             $useCase = new ActualizarPcEquipoUseCase($this->repository);
