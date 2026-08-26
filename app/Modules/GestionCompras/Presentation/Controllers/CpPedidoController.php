@@ -541,7 +541,10 @@ class CpPedidoController extends Controller
 
         try {
             $pedido = $this->actualizarItemsUseCase->execute($id, $request->items);
-            return response()->json(['message' => 'Items actualizados correctamente', 'pedido' => $pedido]);
+            return response()->json([
+                'message' => 'Items actualizados correctamente',
+                'items' => $pedido->items
+            ]);
         } catch (\Exception $e) {
             $status = $e->getCode() === 404 ? 404 : 500;
             return response()->json(['error' => $e->getMessage()], $status);

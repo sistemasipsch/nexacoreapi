@@ -17,7 +17,7 @@ class PcEquipoRepository implements PcEquipoRepositoryInterface
 
     public function find(int $id): ?PcEquipo
     {
-        return PcEquipo::with(['sede', 'area', 'responsable'])->find($id);
+        return PcEquipo::with(['sede', 'area', 'responsable:id,nombre'])->find($id);
     }
 
     public function update(int $id, array $data): ?PcEquipo
@@ -66,7 +66,11 @@ class PcEquipoRepository implements PcEquipoRepositoryInterface
 
     public function buscar(string $query)
     {
-        return PcEquipo::with(['sede', 'area', 'responsable'])
+        return PcEquipo::select([
+            'id', 'nombre_equipo', 'marca', 'modelo', 'serial', 'tipo', 
+            'numero_inventario', 'ip_fija', 'estado', 'imagen_url', 
+            'sede_id', 'area_id', 'responsable_id'
+        ])->with(['sede:id,nombre', 'area:id,nombre', 'responsable:id,nombre'])
             ->where('nombre_equipo', 'like', "%{$query}%")
             ->orWhere('serial', 'like', "%{$query}%")
             ->orWhere('numero_inventario', 'like', "%{$query}%")

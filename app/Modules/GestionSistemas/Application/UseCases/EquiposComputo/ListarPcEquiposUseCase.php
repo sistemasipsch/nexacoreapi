@@ -8,7 +8,16 @@ class ListarPcEquiposUseCase
 {
     public function execute(?string $search = null, ?int $sedeId = null)
     {
-        $query = PcEquipo::with(['sede', 'area', 'responsable', 'creador']);
+        $query = PcEquipo::select([
+            'id', 'nombre_equipo', 'marca', 'modelo', 'serial', 'tipo', 
+            'numero_inventario', 'ip_fija', 'estado', 'imagen_url', 
+            'sede_id', 'area_id', 'responsable_id', 'creado_por'
+        ])->with([
+            'sede:id,nombre', 
+            'area:id,nombre', 
+            'responsable:id,nombre', 
+            'creador:id,nombre_completo'
+        ]);
 
         if ($search) {
             $query->where(function ($q) use ($search) {
@@ -23,6 +32,14 @@ class ListarPcEquiposUseCase
             $query->where('sede_id', $sedeId);
         }
 
-        return $query->orderBy('id', 'desc')->get();
+        $equipos = $query->orderBy('id', 'desc')->get();
+
+        $equipos->each(function ($equipo) {
+            if ($equipo->creador) {
+                $equipo->creador->makeHidden(['is_online', 'activity_status', 'firma_digital']);
+            }
+        });
+
+        return $equipos;
     }
 }

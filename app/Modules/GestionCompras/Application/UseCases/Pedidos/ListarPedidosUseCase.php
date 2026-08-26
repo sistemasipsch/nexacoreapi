@@ -19,7 +19,16 @@ class ListarPedidosUseCase
 
     public function execute(Usuario $user, array $filters = [])
     {
-        $query = CpPedido::with(['items.producto', 'solicitante', 'tipoSolicitud', 'sede', 'elaboradoPor', 'procesoCompra', 'responsableAprobacion', 'creador'])
+        $query = CpPedido::with([
+            'items.producto', 
+            'solicitante', 
+            'tipoSolicitud', 
+            'sede', 
+            'elaboradoPor:id,nombre_completo', 
+            'procesoCompra:id,nombre_completo', 
+            'responsableAprobacion:id,nombre_completo', 
+            'creador:id,nombre_completo'
+        ])
             ->orderBy('id', 'desc');
 
         if (!empty($filters['consecutivo'])) {
