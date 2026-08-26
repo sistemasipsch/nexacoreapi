@@ -222,6 +222,8 @@ return new class extends Migration
             $table->string('adjunto_pdf', 255)->nullable();
             $table->date('fecha_compra')->nullable();
             $table->text('fecha_solicitud_cotizacion')->nullable();
+            $table->dateTime('fecha_gerencia')->nullable();
+            $table->text('observacion_gerencia')->nullable();
             $table->unique('consecutivo');
             $table->index('tipo_solicitud');
             $table->index('elaborado_por');

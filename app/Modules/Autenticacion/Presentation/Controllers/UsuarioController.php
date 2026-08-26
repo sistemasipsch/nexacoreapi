@@ -116,7 +116,7 @@ class UsuarioController extends Controller
             'telefono' => 'nullable|string|max:15',
             'estado' => 'boolean',
             'sede_id' => 'nullable|exists:sedes,id',
-            'firma_digital' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'firma_digital' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp,svg|max:10240',
         ]);
 
         if ($request->hasFile('firma_digital')) {
@@ -138,7 +138,7 @@ class UsuarioController extends Controller
             'telefono' => 'nullable|string|max:15',
             'estado' => 'boolean',
             'sede_id' => 'nullable|exists:sedes,id',
-            'firma_digital' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'firma_digital' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp,svg|max:10240',
         ]);
 
         if ($request->hasFile('firma_digital')) {

@@ -7,6 +7,8 @@ use App\Modules\GestionSistemas\Domain\Contracts\ActaEntregaRepositoryInterface;
 use App\Modules\GestionSistemas\Domain\Entities\ActaEntrega;
 use App\Modules\GestionSistemas\Domain\Entities\PerifericoEntregado;
 use Illuminate\Support\Facades\Storage;
+use App\Services\SignatureHelper;
+use App\Models\Personal;
 use Exception;
 
 class CrearActaEntregaUseCase
@@ -23,19 +25,29 @@ class CrearActaEntregaUseCase
         $firmaEntregaPath = null;
         $firmaRecibePath = null;
 
+        // Firma Quien Entrega
         if ($dto->firmaGuardadaEntregaPath) {
-            $firmaEntregaPath = $dto->firmaGuardadaEntregaPath;
+            $firmaEntregaPath = SignatureHelper::cleanRelativePath($dto->firmaGuardadaEntregaPath);
         } elseif ($dto->firmaEntrega) {
-            $firmaEntregaPath = $dto->firmaEntrega->store('ActasEntregaEquipos', 'public');
+            $firmaEntregaPath = SignatureHelper::processSignature($dto->firmaEntrega, 'ActasEntregaEquipos', 'firma_entrega');
             if (!$firmaEntregaPath) {
-                throw new Exception('Error al guardar la firma de entrega.');
+                throw new Exception('Error al procesar la firma de entrega.');
             }
         }
 
-        if ($dto->firmaRecibe) {
-            $firmaRecibePath = $dto->firmaRecibe->store('ActasEntregaEquipos', 'public');
+        // Firma Quien Recibe
+        if ($dto->firmaGuardadaRecibePath) {
+            $firmaRecibePath = SignatureHelper::cleanRelativePath($dto->firmaGuardadaRecibePath);
+        } elseif ($dto->firmaRecibe) {
+            $firmaRecibePath = SignatureHelper::processSignature($dto->firmaRecibe, 'ActasEntregaEquipos', 'firma_recibe');
             if (!$firmaRecibePath) {
-                throw new Exception('Error al guardar la firma de quien recibe.');
+                throw new Exception('Error al procesar la firma de quien recibe.');
+            }
+        } else {
+            // Si no se envió firma explícita, verificar si el funcionario ya tiene firma guardada
+            $funcionario = Personal::find($dto->funcionarioId);
+            if ($funcionario && !empty($funcionario->firma)) {
+                $firmaRecibePath = SignatureHelper::cleanRelativePath($funcionario->firma);
             }
         }
 

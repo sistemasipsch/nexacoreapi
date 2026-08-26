@@ -6,6 +6,6 @@ class ListarPersonalUseCase
 {
     public function execute()
     {
-        return Personal::all();
+        return Personal::with('cargo')->get();
     }
 }

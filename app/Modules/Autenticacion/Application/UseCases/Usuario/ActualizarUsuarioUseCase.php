@@ -24,7 +24,9 @@ class ActualizarUsuarioUseCase
         }
 
         $usuario->update($data);
-        return $usuario->refresh();
+        $usuario = $usuario->refresh();
+        \App\Services\SignatureHelper::syncUserSignatureToPersonal($usuario);
+        return $usuario;
     }
 
     protected function handleSignatureUpload(Usuario $usuario, $file)

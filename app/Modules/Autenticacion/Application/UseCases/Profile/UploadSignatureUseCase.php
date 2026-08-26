@@ -20,6 +20,8 @@ class UploadSignatureUseCase
         $user->firma_digital = $path;
         $user->save();
 
+        \App\Services\SignatureHelper::syncUserSignatureToPersonal($user);
+
         return $path;
     }
 }

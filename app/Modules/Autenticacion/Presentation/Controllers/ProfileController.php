@@ -154,7 +154,7 @@ class ProfileController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'firma' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'firma' => 'required|image|mimes:jpeg,png,jpg,gif,webp,svg|max:10240',
         ]);
 
         if ($validator->fails()) {

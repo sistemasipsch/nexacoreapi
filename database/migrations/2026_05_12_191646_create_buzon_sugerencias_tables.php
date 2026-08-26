@@ -31,8 +31,8 @@ return new class extends Migration
             $table->text('observaciones');
             $table->unsignedBigInteger('estado_id');
             $table->string('prioridad')->default('Baja');
-            $table->unsignedInteger('creado_por');
-            $table->unsignedInteger('asignado_a')->nullable();
+            $table->unsignedBigInteger('creado_por');
+            $table->unsignedBigInteger('asignado_a')->nullable();
             
             $table->foreign('estado_id')->references('id')->on('estados_ticket');
             $table->foreign('creado_por')->references('id')->on('usuarios');
@@ -54,7 +54,7 @@ return new class extends Migration
         Schema::create('sugerencia_comentarios', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('sugerencia_id');
-            $table->unsignedInteger('usuario_id');
+            $table->unsignedBigInteger('usuario_id');
             $table->text('mensaje');
             $table->timestamp('fecha_comentario')->useCurrent();
 

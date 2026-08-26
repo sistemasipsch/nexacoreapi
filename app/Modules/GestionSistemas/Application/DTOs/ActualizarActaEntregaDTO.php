@@ -23,9 +23,10 @@ class ActualizarActaEntregaDTO
         private ?int $equipo_id = null,
         private ?int $funcionario_id = null,
         private ?string $fecha_entrega = null,
-        private ?UploadedFile $firma_entrega = null,
-        private ?UploadedFile $firma_recibe = null,
+        private $firma_entrega = null,
+        private $firma_recibe = null,
         private ?string $firmaGuardadaEntregaPath = null,
+        private ?string $firmaGuardadaRecibePath = null,
         private ?string $estado = null,
         private ?string $devuelto = null,
         private ?array $perifericos = null
@@ -52,12 +53,12 @@ class ActualizarActaEntregaDTO
         return $this->fecha_entrega;
     }
 
-    public function getFirmaEntrega(): ?UploadedFile
+    public function getFirmaEntrega()
     {
         return $this->firma_entrega;
     }
 
-    public function getFirmaRecibe(): ?UploadedFile
+    public function getFirmaRecibe()
     {
         return $this->firma_recibe;
     }
@@ -65,6 +66,11 @@ class ActualizarActaEntregaDTO
     public function getFirmaGuardadaEntregaPath(): ?string
     {
         return $this->firmaGuardadaEntregaPath;
+    }
+
+    public function getFirmaGuardadaRecibePath(): ?string
+    {
+        return $this->firmaGuardadaRecibePath;
     }
 
     public function getEstado(): ?string

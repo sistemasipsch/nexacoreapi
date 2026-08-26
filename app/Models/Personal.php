@@ -14,12 +14,17 @@ class Personal extends Model
         'cedula',
         'telefono',
         'cargo_id',
+        'firma',
         'estado',
     ];
-
 
     public function cargo()
     {
         return $this->belongsTo(PCargo::class, 'cargo_id');
+    }
+
+    public function pcEntregas()
+    {
+        return $this->hasMany(PcEntrega::class, 'funcionario_id');
     }
 }

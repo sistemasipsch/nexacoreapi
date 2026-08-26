@@ -7,6 +7,7 @@ use App\Modules\GestionSistemas\Domain\Contracts\ActaEntregaRepositoryInterface;
 use App\Modules\GestionSistemas\Domain\Entities\ActaEntrega;
 use App\Modules\GestionSistemas\Domain\Entities\PerifericoEntregado;
 use Illuminate\Support\Facades\Storage;
+use App\Services\SignatureHelper;
 use Exception;
 
 class ActualizarActaEntregaUseCase
@@ -47,26 +48,24 @@ class ActualizarActaEntregaUseCase
             $acta->setDevuelto($dto->getDevuelto());
         }
 
-        // Procesar archivos si se enviaron
+        // Procesar firma quien entrega
         if ($dto->getFirmaGuardadaEntregaPath()) {
-            if ($acta->getFirmaEntrega()) {
-                Storage::disk('public')->delete(str_replace('storage/', '', $acta->getFirmaEntrega()));
-            }
-            $acta->setFirmaEntrega($dto->getFirmaGuardadaEntregaPath());
+            $acta->setFirmaEntrega(SignatureHelper::cleanRelativePath($dto->getFirmaGuardadaEntregaPath()));
         } elseif ($dto->getFirmaEntrega()) {
-            if ($acta->getFirmaEntrega()) {
-                Storage::disk('public')->delete(str_replace('storage/', '', $acta->getFirmaEntrega()));
+            $pathEntrega = SignatureHelper::processSignature($dto->getFirmaEntrega(), 'ActasEntregaEquipos', 'firma_entrega');
+            if ($pathEntrega) {
+                $acta->setFirmaEntrega($pathEntrega);
             }
-            $pathEntrega = $dto->getFirmaEntrega()->store('actas_firmas', 'public');
-            $acta->setFirmaEntrega($pathEntrega);
         }
 
-        if ($dto->getFirmaRecibe()) {
-            if ($acta->getFirmaRecibe()) {
-                Storage::disk('public')->delete(str_replace('storage/', '', $acta->getFirmaRecibe()));
+        // Procesar firma quien recibe
+        if ($dto->getFirmaGuardadaRecibePath()) {
+            $acta->setFirmaRecibe(SignatureHelper::cleanRelativePath($dto->getFirmaGuardadaRecibePath()));
+        } elseif ($dto->getFirmaRecibe()) {
+            $pathRecibe = SignatureHelper::processSignature($dto->getFirmaRecibe(), 'ActasEntregaEquipos', 'firma_recibe');
+            if ($pathRecibe) {
+                $acta->setFirmaRecibe($pathRecibe);
             }
-            $pathRecibe = $dto->getFirmaRecibe()->store('actas_firmas', 'public');
-            $acta->setFirmaRecibe($pathRecibe);
         }
 
         // Actualizar periféricos

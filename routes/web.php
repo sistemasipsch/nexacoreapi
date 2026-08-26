@@ -2,25 +2,45 @@
 
 use Illuminate\Support\Facades\Route;
 
-// Serve storage files WITHOUT middleware (fix for shared hosting/missing sessions table)
-// Handles /storage/..., /public/storage/..., /api/storage/..., or /public/api/storage/...
+// Serve storage and equipment image files WITHOUT middleware
+// Handles /storage/..., /public/storage/..., /api/storage/..., /pcEquipos/..., /equipos/...
 Route::get('{fullPath}', function (string $fullPath) {
-    // Extract the part after 'storage/' allowing for public/ and/or api/ prefixes
-    if (preg_match('/(?:(?:public\/)?(?:api\/)?)?storage\/(.+)$/', $fullPath, $matches)) {
-        $path = $matches[1];
-        $absolutePath = storage_path('app/public/' . $path);
+    $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'pdf', 'doc', 'docx', 'xls', 'xlsx'];
+    $clean = ltrim(preg_replace('#^(api/|public/)+#i', '', $fullPath), '/');
 
-        if (file_exists($absolutePath)) {
-            $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'pdf', 'doc', 'docx', 'xls', 'xlsx'];
-            $ext = strtolower(pathinfo($absolutePath, PATHINFO_EXTENSION));
-            if (in_array($ext, $allowed)) {
-                return response()->file($absolutePath);
-            }
-            abort(403, 'Extension not allowed');
+    // 1. Try storage path directly (e.g. storage/app/public/...)
+    $storageRel = preg_replace('#^storage/#i', '', $clean);
+    $storagePath = storage_path('app/public/' . $storageRel);
+    if (file_exists($storagePath)) {
+        $ext = strtolower(pathinfo($storagePath, PATHINFO_EXTENSION));
+        if (in_array($ext, $allowed)) {
+            return response()->file($storagePath);
         }
     }
+
+    // 2. Try public folder directly
+    $publicPath = public_path($clean);
+    if (file_exists($publicPath) && is_file($publicPath)) {
+        $ext = strtolower(pathinfo($publicPath, PATHINFO_EXTENSION));
+        if (in_array($ext, $allowed)) {
+            return response()->file($publicPath);
+        }
+    }
+
+    // 3. Try storage under pcEquipos or equipos
+    foreach (['pcEquipos', 'equipos'] as $folder) {
+        $candidate = storage_path("app/public/{$folder}/" . basename($clean));
+        if (file_exists($candidate) && is_file($candidate)) {
+            return response()->file($candidate);
+        }
+        $pubCandidate = public_path("{$folder}/" . basename($clean));
+        if (file_exists($pubCandidate) && is_file($pubCandidate)) {
+            return response()->file($pubCandidate);
+        }
+    }
+
     abort(404);
-})->where('fullPath', '(public\/)?(api\/)?storage\/.*')
+})->where('fullPath', '(public\/)?(api\/)?(storage|pcEquipos|equipos)\/.*')
     ->withoutMiddleware([
         \Illuminate\Session\Middleware\StartSession::class,
         \Illuminate\View\Middleware\ShareErrorsFromSession::class,

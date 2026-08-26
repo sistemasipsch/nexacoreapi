@@ -6,6 +6,6 @@ class ObtenerPersonalUseCase
 {
     public function execute($id)
     {
-        return Personal::find($id);
+        return Personal::with('cargo')->find($id);
     }
 }

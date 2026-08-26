@@ -88,11 +88,12 @@ class ExportarActaEntregaExcelUseCase
 
     private function insertarFirma($sheet, $path, $cell)
     {
-        if ($path && Storage::disk('public')->exists($path)) {
+        $cleanPath = \App\Services\SignatureHelper::cleanRelativePath($path);
+        if ($cleanPath && Storage::disk('public')->exists($cleanPath)) {
             $drawing = new Drawing();
             $drawing->setName('Firma');
             $drawing->setDescription('Firma');
-            $drawing->setPath(storage_path('app/public/' . $path));
+            $drawing->setPath(storage_path('app/public/' . $cleanPath));
             $drawing->setCoordinates($cell);
             $drawing->setHeight(40); // Ajustar según el tamaño de la celda
             $drawing->setWorksheet($sheet);

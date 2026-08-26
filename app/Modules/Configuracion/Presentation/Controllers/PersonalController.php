@@ -72,8 +72,10 @@ class PersonalController extends Controller
         $termino = $request->input('termino') ?? $request->input('q');
         if (!$termino) return ApiResponse::success([], 'Término no proporcionado', 200);
 
-        // Simulando busqueda en caso de uso o modelo directo para simplificar
-        $resultados = \App\Models\Personal::where('cedula', 'like', "%$termino%")->orWhere('nombre', 'like', "%$termino%")->get();
+        $resultados = \App\Models\Personal::with('cargo')
+            ->where('cedula', 'like', "%$termino%")
+            ->orWhere('nombre', 'like', "%$termino%")
+            ->get();
         return ApiResponse::success($resultados, 'Resultados locales');
     }
 

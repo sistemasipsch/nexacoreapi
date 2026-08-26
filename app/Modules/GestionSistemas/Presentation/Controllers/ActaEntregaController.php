@@ -46,7 +46,7 @@ class ActaEntregaController extends Controller
     {
         // Para simplificar y mantener las relaciones en la lista, usamos Eloquent directo en la capa de presentación o creamos un ListUseCase.
         // Usaremos Eloquent directamente para la vista de lista rápida, como es común en pragmático DDD/CQRS.
-        $entregas = \App\Models\PcEntrega::with(['equipo', 'funcionario'])->orderBy('id', 'desc')->get();
+        $entregas = \App\Models\PcEntrega::with(['equipo', 'funcionario.cargo'])->orderBy('id', 'desc')->get();
         return response()->json($entregas);
     }
 
@@ -85,8 +85,8 @@ class ActaEntregaController extends Controller
             'equipo_id' => 'required|integer',
             'funcionario_id' => 'required|integer',
             'fecha_entrega' => 'required|date',
-            'firma_entrega' => 'nullable|file|mimes:jpeg,png,jpg,pdf|max:2048',
-            'firma_recibe' => 'nullable|file|mimes:jpeg,png,jpg,pdf|max:2048',
+            'firma_entrega' => 'nullable',
+            'firma_recibe' => 'nullable',
             'perifericos' => 'nullable|string', // Aceptamos string para JSON
         ]);
 
@@ -105,17 +105,32 @@ class ActaEntregaController extends Controller
         }
 
         $firmaGuardadaEntregaPath = null;
-        if ($request->input('usar_firma_guardada_entrega') === 'true' && $request->user()) {
-            $firmaGuardadaEntregaPath = $request->user()->firma_digital;
+        if (($request->input('usar_firma_guardada_entrega') === 'true' || $request->input('usar_firma_guardada_entrega') === true || $request->input('usar_firma_guardada_entrega') === 1 || $request->input('usar_firma_guardada_entrega') === '1') && $request->user()) {
+            $user = $request->user();
+            $rawFirma = $user->getRawOriginal('firma_digital') ?? $user->getAttributes()['firma_digital'] ?? $user->firma_digital;
+            $firmaGuardadaEntregaPath = \App\Services\SignatureHelper::cleanRelativePath($rawFirma);
         }
+
+        $firmaGuardadaRecibePath = null;
+        if ($request->input('usar_firma_guardada_recibe') === 'true' || $request->input('usar_firma_guardada_recibe') === true || $request->input('usar_firma_guardada_recibe') === 1 || $request->input('usar_firma_guardada_recibe') === '1') {
+            $funcionario = \App\Models\Personal::find($request->input('funcionario_id'));
+            if ($funcionario && !empty($funcionario->firma)) {
+                $rawFirmaFuncionario = $funcionario->getRawOriginal('firma') ?? $funcionario->firma;
+                $firmaGuardadaRecibePath = \App\Services\SignatureHelper::cleanRelativePath($rawFirmaFuncionario);
+            }
+        }
+
+        $firmaEntrega = $request->file('firma_entrega') ?? $request->input('firma_entrega');
+        $firmaRecibe = $request->file('firma_recibe') ?? $request->input('firma_recibe');
 
         $dto = new CrearActaEntregaDTO(
             $request->input('equipo_id'),
             $request->input('funcionario_id'),
             $request->input('fecha_entrega'),
-            $request->file('firma_entrega'),
-            $request->file('firma_recibe'),
+            $firmaEntrega,
+            $firmaRecibe,
             $firmaGuardadaEntregaPath,
+            $firmaGuardadaRecibePath,
             $perifericosData
         );
 
@@ -197,13 +212,15 @@ class ActaEntregaController extends Controller
                 ] : null,
                 'funcionario_id' => $acta->funcionario_id,
                 'funcionario' => $acta->funcionario ? [
+                    'id' => $acta->funcionario->id,
                     'nombre' => $acta->funcionario->nombre,
                     'cedula' => $acta->funcionario->cedula,
                     'cargo' => $acta->funcionario->cargo,
+                    'firma' => $acta->funcionario->firma,
                 ] : null,
                 'fecha_entrega' => $acta->fecha_entrega,
-                'firma_entrega' => $acta->firma_entrega ? asset('storage/' . $acta->firma_entrega) : null,
-                'firma_recibe' => $acta->firma_recibe ? asset('storage/' . $acta->firma_recibe) : null,
+                'firma_entrega' => $acta->firma_entrega ? asset('storage/' . \App\Services\SignatureHelper::cleanRelativePath($acta->firma_entrega)) : null,
+                'firma_recibe' => $acta->firma_recibe ? asset('storage/' . \App\Services\SignatureHelper::cleanRelativePath($acta->firma_recibe)) : null,
                 'estado' => $acta->estado,
                 'devuelto' => $acta->devuelto,
                 'perifericos' => $perifericos
@@ -302,18 +319,36 @@ class ActaEntregaController extends Controller
         }
 
         $firmaGuardadaEntregaPath = null;
-        if ($request->input('usar_firma_guardada_entrega') === 'true' && $request->user()) {
-            $firmaGuardadaEntregaPath = $request->user()->firma_digital;
+        if (($request->input('usar_firma_guardada_entrega') === 'true' || $request->input('usar_firma_guardada_entrega') === true || $request->input('usar_firma_guardada_entrega') === 1 || $request->input('usar_firma_guardada_entrega') === '1') && $request->user()) {
+            $user = $request->user();
+            $rawFirma = $user->getRawOriginal('firma_digital') ?? $user->getAttributes()['firma_digital'] ?? $user->firma_digital;
+            $firmaGuardadaEntregaPath = \App\Services\SignatureHelper::cleanRelativePath($rawFirma);
         }
+
+        $firmaGuardadaRecibePath = null;
+        if ($request->input('usar_firma_guardada_recibe') === 'true' || $request->input('usar_firma_guardada_recibe') === true || $request->input('usar_firma_guardada_recibe') === 1 || $request->input('usar_firma_guardada_recibe') === '1') {
+            $funcionarioId = $request->input('funcionario_id');
+            if ($funcionarioId) {
+                $funcionario = \App\Models\Personal::find($funcionarioId);
+                if ($funcionario && !empty($funcionario->firma)) {
+                    $rawFirmaFuncionario = $funcionario->getRawOriginal('firma') ?? $funcionario->firma;
+                    $firmaGuardadaRecibePath = \App\Services\SignatureHelper::cleanRelativePath($rawFirmaFuncionario);
+                }
+            }
+        }
+
+        $firmaEntrega = $request->file('firma_entrega') ?? $request->input('firma_entrega');
+        $firmaRecibe = $request->file('firma_recibe') ?? $request->input('firma_recibe');
 
         $dto = new \App\Modules\GestionSistemas\Application\DTOs\ActualizarActaEntregaDTO(
             $id,
             $request->input('equipo_id'),
             $request->input('funcionario_id'),
             $request->input('fecha_entrega'),
-            $request->file('firma_entrega'),
-            $request->file('firma_recibe'),
+            $firmaEntrega,
+            $firmaRecibe,
             $firmaGuardadaEntregaPath,
+            $firmaGuardadaRecibePath,
             $request->input('estado'),
             null, // devuelto
             $perifericosData
