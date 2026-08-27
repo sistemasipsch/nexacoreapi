@@ -61,23 +61,52 @@ class CpEntregaActivosFijosController extends Controller
         path: '/api/gestion-compras/cp-entrega-activos-fijos',
         tags: ['Entrega de Activos Fijos'],
         summary: 'Listar entregas de activos fijos',
-        description: 'Obtiene la lista de entregas de activos fijos con sus relaciones.',
+        description: 'Obtiene la lista de entregas de activos fijos con sus relaciones, con paginación y filtros opcionales.',
         security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'page', in: 'query', required: false, description: 'Número de página', schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'limit', in: 'query', required: false, description: 'Límite por página', schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'search', in: 'query', required: false, description: 'Término de búsqueda', schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'sede_id', in: 'query', required: false, description: 'ID de la sede a filtrar', schema: new OA\Schema(type: 'integer'))
+        ],
         responses: [
             new OA\Response(response: 200, description: 'Lista de entregas'),
             new OA\Response(response: 403, description: 'Prohibido')
         ]
     )]
-    public function index()
+    public function index(Request $request)
     {
         // $this->permissionService->authorize('cp_entrega_activos_fijos.listar');
-        return CpEntregaActivosFijos::with([
+        $limit = $request->input('limit', 30);
+        $limit = min((int)$limit, 300);
+
+        $query = CpEntregaActivosFijos::with([
             'personal',
             'sede',
             'procesoSolicitante',
             'coordinador',
             'items.inventario'
-        ])->orderBy('id', 'desc')->get();
+        ]);
+
+        if ($request->filled('sede_id')) {
+            $query->where('sede_id', $request->sede_id);
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->whereHas('personal', function($qPersonal) use ($search) {
+                    $qPersonal->where('nombres', 'like', "%{$search}%")
+                              ->orWhere('apellidos', 'like', "%{$search}%")
+                              ->orWhere('documento', 'like', "%{$search}%");
+                })->orWhereHas('coordinador', function($qCoord) use ($search) {
+                    $qCoord->where('nombres', 'like', "%{$search}%")
+                           ->orWhere('apellidos', 'like', "%{$search}%");
+                })->orWhere('id', 'like', "%{$search}%");
+            });
+        }
+
+        return $query->orderBy('id', 'desc')->paginate($limit);
     }
 
     /**
