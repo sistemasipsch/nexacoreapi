@@ -32,7 +32,9 @@ class CrearActaEntregaUseCase
             }
         }
 
-        if ($dto->firmaRecibe) {
+        if ($dto->firmaGuardadaRecibePath) {
+            $firmaRecibePath = $dto->firmaGuardadaRecibePath;
+        } elseif ($dto->firmaRecibe) {
             $firmaRecibePath = $dto->firmaRecibe->store('ActasEntregaEquipos', 'public');
             if (!$firmaRecibePath) {
                 throw new Exception('Error al guardar la firma de quien recibe.');

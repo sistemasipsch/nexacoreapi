@@ -32,7 +32,13 @@ class PersonalController extends Controller
     {
         $this->permissionService->authorize('personal.crear');
         try {
-            return ApiResponse::success($this->crearUseCase->execute($request->all()), 'Personal creado', 201);
+            $data = $request->all();
+            if ($request->hasFile('firma_file')) {
+                $data['firma_file'] = $request->file('firma_file');
+            } elseif ($request->hasFile('firma')) {
+                $data['firma_file'] = $request->file('firma');
+            }
+            return ApiResponse::success($this->crearUseCase->execute($data), 'Personal creado', 201);
         } catch (\Exception $e) {
             return ApiResponse::error('Error al crear: ' . $e->getMessage(), 500);
         }
@@ -50,7 +56,13 @@ class PersonalController extends Controller
     {
         $this->permissionService->authorize('personal.actualizar');
         try {
-            $item = $this->actualizarUseCase->execute($id, $request->all());
+            $data = $request->all();
+            if ($request->hasFile('firma_file')) {
+                $data['firma_file'] = $request->file('firma_file');
+            } elseif ($request->hasFile('firma')) {
+                $data['firma_file'] = $request->file('firma');
+            }
+            $item = $this->actualizarUseCase->execute($id, $data);
             if (!$item) return ApiResponse::error('No encontrado', 404);
             return ApiResponse::success($item, 'Personal actualizado');
         } catch (\Exception $e) {

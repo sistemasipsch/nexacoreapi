@@ -49,23 +49,28 @@ class ActualizarActaEntregaUseCase
 
         // Procesar archivos si se enviaron
         if ($dto->getFirmaGuardadaEntregaPath()) {
-            if ($acta->getFirmaEntrega()) {
+            if ($acta->getFirmaEntrega() && !str_starts_with($acta->getFirmaEntrega(), 'signatures/')) {
                 Storage::disk('public')->delete(str_replace('storage/', '', $acta->getFirmaEntrega()));
             }
             $acta->setFirmaEntrega($dto->getFirmaGuardadaEntregaPath());
         } elseif ($dto->getFirmaEntrega()) {
-            if ($acta->getFirmaEntrega()) {
+            if ($acta->getFirmaEntrega() && !str_starts_with($acta->getFirmaEntrega(), 'signatures/')) {
                 Storage::disk('public')->delete(str_replace('storage/', '', $acta->getFirmaEntrega()));
             }
-            $pathEntrega = $dto->getFirmaEntrega()->store('actas_firmas', 'public');
+            $pathEntrega = $dto->getFirmaEntrega()->store('ActasEntregaEquipos', 'public');
             $acta->setFirmaEntrega($pathEntrega);
         }
 
-        if ($dto->getFirmaRecibe()) {
-            if ($acta->getFirmaRecibe()) {
+        if ($dto->getFirmaGuardadaRecibePath()) {
+            if ($acta->getFirmaRecibe() && !str_starts_with($acta->getFirmaRecibe(), 'personal_firmas/')) {
                 Storage::disk('public')->delete(str_replace('storage/', '', $acta->getFirmaRecibe()));
             }
-            $pathRecibe = $dto->getFirmaRecibe()->store('actas_firmas', 'public');
+            $acta->setFirmaRecibe($dto->getFirmaGuardadaRecibePath());
+        } elseif ($dto->getFirmaRecibe()) {
+            if ($acta->getFirmaRecibe() && !str_starts_with($acta->getFirmaRecibe(), 'personal_firmas/')) {
+                Storage::disk('public')->delete(str_replace('storage/', '', $acta->getFirmaRecibe()));
+            }
+            $pathRecibe = $dto->getFirmaRecibe()->store('ActasEntregaEquipos', 'public');
             $acta->setFirmaRecibe($pathRecibe);
         }
 

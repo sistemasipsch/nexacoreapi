@@ -26,6 +26,7 @@ class ActualizarActaEntregaDTO
         private ?UploadedFile $firma_entrega = null,
         private ?UploadedFile $firma_recibe = null,
         private ?string $firmaGuardadaEntregaPath = null,
+        private ?string $firmaGuardadaRecibePath = null,
         private ?string $estado = null,
         private ?string $devuelto = null,
         private ?array $perifericos = null
@@ -65,6 +66,11 @@ class ActualizarActaEntregaDTO
     public function getFirmaGuardadaEntregaPath(): ?string
     {
         return $this->firmaGuardadaEntregaPath;
+    }
+
+    public function getFirmaGuardadaRecibePath(): ?string
+    {
+        return $this->firmaGuardadaRecibePath;
     }
 
     public function getEstado(): ?string

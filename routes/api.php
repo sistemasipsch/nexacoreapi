@@ -69,6 +69,7 @@ Route::group(['middleware' => 'api'], function () {
         Route::apiResource('p-cargos', App\Modules\Configuracion\Presentation\Controllers\PCargoController::class);
         Route::get('personal/buscar', [App\Modules\Configuracion\Presentation\Controllers\PersonalController::class, 'buscar']);
         Route::get('personal/buscar-externo', [App\Modules\Configuracion\Presentation\Controllers\PersonalController::class, 'buscarExterno']);
+        Route::match(['put', 'post'], 'personal/{id}', [App\Modules\Configuracion\Presentation\Controllers\PersonalController::class, 'update']);
         Route::apiResource('personal', App\Modules\Configuracion\Presentation\Controllers\PersonalController::class);
 
         // Dashboard Stats moved to Dashboard module

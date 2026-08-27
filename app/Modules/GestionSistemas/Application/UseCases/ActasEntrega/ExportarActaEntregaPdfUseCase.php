@@ -50,6 +50,9 @@ class ExportarActaEntregaPdfUseCase
         $fecha = Carbon::parse($acta->fecha_entrega);
         $row = 14;
 
+        $firmaEntrega = $acta->firma_entrega;
+        $firmaRecibe = $acta->firma_recibe ?: optional($acta->funcionario)->firma;
+
         // Fila 14: Equipo Principal
         if ($acta->equipo) {
             $sheet->setCellValue('B' . $row, $fecha->format('Y'));
@@ -62,6 +65,9 @@ class ExportarActaEntregaPdfUseCase
             $sheet->setCellValue('Z' . $row, $acta->equipo->serial ?? '');
             $sheet->setCellValue('AJ' . $row, $acta->devuelto ? Carbon::parse($acta->devuelto)->format('Y-m-d') : '');
             
+            $this->insertarFirma($sheet, $firmaEntrega, 'AD' . $row);
+            $this->insertarFirma($sheet, $firmaRecibe, 'AG' . $row);
+
             $row++;
         }
 
@@ -78,8 +84,8 @@ class ExportarActaEntregaPdfUseCase
                 $sheet->setCellValue('Z' . $row, optional($periferico->inventario)->serial ?? '');
                 $sheet->setCellValue('AJ' . $row, $acta->devuelto ? Carbon::parse($acta->devuelto)->format('Y-m-d') : '');
                 
-                $this->insertarFirma($sheet, $acta->firma_entrega, 'AD' . $row);
-                $this->insertarFirma($sheet, $acta->firma_recibe, 'AG' . $row);
+                $this->insertarFirma($sheet, $firmaEntrega, 'AD' . $row);
+                $this->insertarFirma($sheet, $firmaRecibe, 'AG' . $row);
                 $row++;
             }
         }
@@ -120,11 +126,16 @@ class ExportarActaEntregaPdfUseCase
 
     private function insertarFirma($sheet, $path, $cell)
     {
-        if ($path && Storage::disk('public')->exists($path)) {
+        if (!$path) {
+            return;
+        }
+
+        $cleanPath = ltrim(str_replace('storage/', '', $path), '/');
+        if (Storage::disk('public')->exists($cleanPath)) {
             $drawing = new Drawing();
             $drawing->setName('Firma');
             $drawing->setDescription('Firma');
-            $drawing->setPath(storage_path('app/public/' . $path));
+            $drawing->setPath(storage_path('app/public/' . $cleanPath));
             $drawing->setCoordinates($cell);
             $drawing->setHeight(25);
             $drawing->setWorksheet($sheet);

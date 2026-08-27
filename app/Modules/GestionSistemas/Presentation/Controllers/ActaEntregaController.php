@@ -106,7 +106,16 @@ class ActaEntregaController extends Controller
 
         $firmaGuardadaEntregaPath = null;
         if ($request->input('usar_firma_guardada_entrega') === 'true' && $request->user()) {
-            $firmaGuardadaEntregaPath = $request->user()->firma_digital;
+            $rawFirma = $request->user()->getAttributes()['firma_digital'] ?? $request->user()->firma_digital;
+            $firmaGuardadaEntregaPath = $rawFirma ? ltrim(str_replace('storage/', '', $rawFirma), '/') : null;
+        }
+
+        $firmaGuardadaRecibePath = null;
+        if ($request->input('usar_firma_guardada_recibe') === 'true' || (!$request->hasFile('firma_recibe') && empty($request->input('firma_recibe')))) {
+            $personal = \App\Models\Personal::find($request->input('funcionario_id'));
+            if ($personal && $personal->firma) {
+                $firmaGuardadaRecibePath = ltrim(str_replace('storage/', '', $personal->firma), '/');
+            }
         }
 
         $dto = new CrearActaEntregaDTO(
@@ -116,6 +125,7 @@ class ActaEntregaController extends Controller
             $request->file('firma_entrega'),
             $request->file('firma_recibe'),
             $firmaGuardadaEntregaPath,
+            $firmaGuardadaRecibePath,
             $perifericosData
         );
 
@@ -303,7 +313,19 @@ class ActaEntregaController extends Controller
 
         $firmaGuardadaEntregaPath = null;
         if ($request->input('usar_firma_guardada_entrega') === 'true' && $request->user()) {
-            $firmaGuardadaEntregaPath = $request->user()->firma_digital;
+            $rawFirma = $request->user()->getAttributes()['firma_digital'] ?? $request->user()->firma_digital;
+            $firmaGuardadaEntregaPath = $rawFirma ? ltrim(str_replace('storage/', '', $rawFirma), '/') : null;
+        }
+
+        $firmaGuardadaRecibePath = null;
+        if ($request->input('usar_firma_guardada_recibe') === 'true') {
+            $funcionarioId = $request->input('funcionario_id');
+            if ($funcionarioId) {
+                $personal = \App\Models\Personal::find($funcionarioId);
+                if ($personal && $personal->firma) {
+                    $firmaGuardadaRecibePath = ltrim(str_replace('storage/', '', $personal->firma), '/');
+                }
+            }
         }
 
         $dto = new \App\Modules\GestionSistemas\Application\DTOs\ActualizarActaEntregaDTO(
@@ -314,6 +336,7 @@ class ActaEntregaController extends Controller
             $request->file('firma_entrega'),
             $request->file('firma_recibe'),
             $firmaGuardadaEntregaPath,
+            $firmaGuardadaRecibePath,
             $request->input('estado'),
             null, // devuelto
             $perifericosData
