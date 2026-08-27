@@ -12,17 +12,26 @@ Route::get('/ping', function () {
 
 // Serve storage files through API route
 Route::get('storage/{path}', function (string $path) {
-    $cleanPath = ltrim(str_replace(['storage/', 'public/'], '', $path), '/');
-    $absolutePath = storage_path('app/public/' . $cleanPath);
+    $cleanPath = ltrim(str_replace(['storage/', 'public/', 'api/'], '', $path), '/');
+    
+    $candidates = [
+        storage_path('app/public/' . $cleanPath),
+        public_path('storage/' . $cleanPath),
+        storage_path('app/' . $cleanPath),
+        public_path($cleanPath),
+    ];
 
-    if (file_exists($absolutePath)) {
-        $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'pdf', 'doc', 'docx', 'xls', 'xlsx'];
-        $ext = strtolower(pathinfo($absolutePath, PATHINFO_EXTENSION));
-        if (in_array($ext, $allowed)) {
-            return response()->file($absolutePath);
+    foreach ($candidates as $absolutePath) {
+        if (file_exists($absolutePath) && !is_dir($absolutePath)) {
+            $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'pdf', 'doc', 'docx', 'xls', 'xlsx'];
+            $ext = strtolower(pathinfo($absolutePath, PATHINFO_EXTENSION));
+            if (in_array($ext, $allowed)) {
+                return response()->file($absolutePath);
+            }
+            abort(403, 'Extension not allowed');
         }
-        abort(403, 'Extension not allowed');
     }
+
     abort(404, 'File not found');
 })->where('path', '.*');
 

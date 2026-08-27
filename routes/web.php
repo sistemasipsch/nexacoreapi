@@ -7,16 +7,24 @@ use Illuminate\Support\Facades\Route;
 Route::get('{fullPath}', function (string $fullPath) {
     // Extract the part after 'storage/' allowing for public/ and/or api/ prefixes
     if (preg_match('/(?:(?:public\/)?(?:api\/)?)?storage\/(.+)$/', $fullPath, $matches)) {
-        $path = $matches[1];
-        $absolutePath = storage_path('app/public/' . $path);
+        $cleanPath = ltrim(str_replace(['storage/', 'public/', 'api/'], '', $matches[1]), '/');
+        
+        $candidates = [
+            storage_path('app/public/' . $cleanPath),
+            public_path('storage/' . $cleanPath),
+            storage_path('app/' . $cleanPath),
+            public_path($cleanPath),
+        ];
 
-        if (file_exists($absolutePath)) {
-            $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'pdf', 'doc', 'docx', 'xls', 'xlsx'];
-            $ext = strtolower(pathinfo($absolutePath, PATHINFO_EXTENSION));
-            if (in_array($ext, $allowed)) {
-                return response()->file($absolutePath);
+        foreach ($candidates as $absolutePath) {
+            if (file_exists($absolutePath) && !is_dir($absolutePath)) {
+                $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'pdf', 'doc', 'docx', 'xls', 'xlsx'];
+                $ext = strtolower(pathinfo($absolutePath, PATHINFO_EXTENSION));
+                if (in_array($ext, $allowed)) {
+                    return response()->file($absolutePath);
+                }
+                abort(403, 'Extension not allowed');
             }
-            abort(403, 'Extension not allowed');
         }
     }
     abort(404);
