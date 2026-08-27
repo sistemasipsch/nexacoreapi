@@ -53,7 +53,7 @@ class ExportarMantenimientoEquipoPdfUseCase
         $sheet->setCellValue('K7', $sheet->getCell('K7')->getValue() . $marca);
         $sheet->setCellValue('U7', $sheet->getCell('U7')->getValue() . $modelo);
         $sheet->setCellValue('AD7', $sheet->getCell('AD7')->getValue() . $serial);
-        $sheet->setCellValue('A7', $sheet->getCell('A7')->getValue() . trim($areaNombre . ' - ' . $sedeNombre, ' - '));
+        $sheet->setCellValue('B8', $sheet->getCell('B8')->getValue() . trim($areaNombre . ' - ' . $sedeNombre, ' - '));
 
         // Insertar datos de mantenimiento
         if ($mantenimiento->fecha) {

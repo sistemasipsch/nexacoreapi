@@ -30,6 +30,14 @@ class ObtenerMantenimientoEquipoUseCase
             $mantenimiento->foto_despues_url = asset('storage/' . $mantenimiento->foto_despues);
         }
 
+        if ($mantenimiento->firma_personal_cargo) {
+            $mantenimiento->firma_personal_cargo = asset('storage/' . $mantenimiento->firma_personal_cargo);
+        }
+
+        if ($mantenimiento->firma_sistemas) {
+            $mantenimiento->firma_sistemas = asset('storage/' . $mantenimiento->firma_sistemas);
+        }
+
         return $mantenimiento;
     }
 }

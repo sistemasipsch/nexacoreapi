@@ -43,11 +43,11 @@ class ExportarActaDevolucionPdfUseCase
         $telefono = optional($entrega->funcionario)->telefono ?? '';
         $proceso = ''; // Proceso - a definir
 
-        $sheet->setCellValue('T7', 'NOMBRE: ' . $nombre);
-        $sheet->setCellValue('T8', 'NUMERO DE IDENTIFICACION: ' . $cedula);
-        $sheet->setCellValue('T9', 'CARGO: ' . $cargo);
-        $sheet->setCellValue('T10', 'TELEFONO: ' . $telefono);
-        $sheet->setCellValue('T11', 'PROCESO: ' . $proceso);
+        $sheet->setCellValue('V7', 'NOMBRE: ' . $nombre);
+        $sheet->setCellValue('V8', 'NUMERO DE IDENTIFICACION: ' . $cedula);
+        $sheet->setCellValue('V9', 'CARGO: ' . $cargo);
+        $sheet->setCellValue('V10', 'TELEFONO: ' . $telefono);
+        $sheet->setCellValue('V11', 'PROCESO: ' . $proceso);
 
         $fecha = Carbon::parse($devolucion->fecha_devolucion);
         $row = 14;
@@ -65,8 +65,7 @@ class ExportarActaDevolucionPdfUseCase
             $sheet->setCellValue('AJ' . $row, $fecha->format('Y-m-d'));
             
             // Insertar Firmas si existen
-            $this->insertarFirma($sheet, $devolucion->firma_entrega, 'AD' . $row);
-            $this->insertarFirma($sheet, $devolucion->firma_recibe, 'AG' . $row);
+            
             $row++;
         }
 
@@ -82,7 +81,9 @@ class ExportarActaDevolucionPdfUseCase
                 $sheet->setCellValue('V' . $row, optional($periferico->inventario)->modelo ?? '');
                 $sheet->setCellValue('Z' . $row, optional($periferico->inventario)->serial ?? '');
                 $sheet->setCellValue('AJ' . $row, $fecha->format('Y-m-d'));
-                
+                $this->insertarFirma($sheet, $devolucion->firma_entrega, 'AD' . $row);
+                $this->insertarFirma($sheet, $devolucion->firma_recibe, 'AG' . $row);
+
                 $row++;
             }
         }
@@ -129,7 +130,7 @@ class ExportarActaDevolucionPdfUseCase
             $drawing->setDescription('Firma');
             $drawing->setPath(storage_path('app/public/' . $path));
             $drawing->setCoordinates($cell);
-            $drawing->setHeight(40); // Ajustar según el tamaño de la celda
+            $drawing->setHeight(30); // Ajustar según el tamaño de la celda
             $drawing->setWorksheet($sheet);
         }
     }

@@ -62,9 +62,6 @@ class ExportarActaEntregaPdfUseCase
             $sheet->setCellValue('Z' . $row, $acta->equipo->serial ?? '');
             $sheet->setCellValue('AJ' . $row, $acta->devuelto ? Carbon::parse($acta->devuelto)->format('Y-m-d') : '');
             
-            // Insertar Firmas si existen
-            $this->insertarFirma($sheet, $acta->firma_entrega, 'AD' . $row);
-            $this->insertarFirma($sheet, $acta->firma_recibe, 'AG' . $row);
             $row++;
         }
 
@@ -81,6 +78,8 @@ class ExportarActaEntregaPdfUseCase
                 $sheet->setCellValue('Z' . $row, optional($periferico->inventario)->serial ?? '');
                 $sheet->setCellValue('AJ' . $row, $acta->devuelto ? Carbon::parse($acta->devuelto)->format('Y-m-d') : '');
                 
+                $this->insertarFirma($sheet, $acta->firma_entrega, 'AD' . $row);
+                $this->insertarFirma($sheet, $acta->firma_recibe, 'AG' . $row);
                 $row++;
             }
         }
@@ -127,7 +126,7 @@ class ExportarActaEntregaPdfUseCase
             $drawing->setDescription('Firma');
             $drawing->setPath(storage_path('app/public/' . $path));
             $drawing->setCoordinates($cell);
-            $drawing->setHeight(40); // Ajustar según el tamaño de la celda
+            $drawing->setHeight(25);
             $drawing->setWorksheet($sheet);
         }
     }
