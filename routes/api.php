@@ -10,6 +10,22 @@ Route::get('/ping', function () {
     ]);
 });
 
+// Serve storage files through API route
+Route::get('storage/{path}', function (string $path) {
+    $cleanPath = ltrim(str_replace(['storage/', 'public/'], '', $path), '/');
+    $absolutePath = storage_path('app/public/' . $cleanPath);
+
+    if (file_exists($absolutePath)) {
+        $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'pdf', 'doc', 'docx', 'xls', 'xlsx'];
+        $ext = strtolower(pathinfo($absolutePath, PATHINFO_EXTENSION));
+        if (in_array($ext, $allowed)) {
+            return response()->file($absolutePath);
+        }
+        abort(403, 'Extension not allowed');
+    }
+    abort(404, 'File not found');
+})->where('path', '.*');
+
 \Illuminate\Support\Facades\Broadcast::routes(['middleware' => ['auth:api']]);
 
 // TEMPORARY DEBUG - REMOVE AFTER FIXING

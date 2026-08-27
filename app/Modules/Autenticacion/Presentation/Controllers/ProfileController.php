@@ -163,7 +163,8 @@ class ProfileController extends Controller
 
         if ($request->hasFile('firma')) {
             $path = $this->uploadSignatureUseCase->execute($user, $request->file('firma'));
-            return ApiResponse::success(['firma_url' => url('api/storage/' . $path)], 'Firma actualizada exitosamente');
+            $cleanPath = ltrim(str_replace(['storage/', 'public/', 'api/'], '', $path), '/');
+            return ApiResponse::success(['firma_url' => url('storage/' . $cleanPath)], 'Firma actualizada exitosamente');
         }
 
         return ApiResponse::error('No se ha subido ningún archivo', 400);
@@ -211,7 +212,8 @@ class ProfileController extends Controller
 
         if ($request->hasFile('foto')) {
             $path = $this->uploadPhotoUseCase->execute($user, $request->file('foto'));
-            return ApiResponse::success(['foto_url' => url('api/storage/' . $path)], 'Foto actualizada exitosamente');
+            $cleanPath = ltrim(str_replace(['storage/', 'public/', 'api/'], '', $path), '/');
+            return ApiResponse::success(['foto_url' => url('storage/' . $cleanPath)], 'Foto actualizada exitosamente');
         }
 
         return ApiResponse::error('No se ha subido ningún archivo', 400);

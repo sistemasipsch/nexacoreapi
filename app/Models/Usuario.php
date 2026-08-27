@@ -57,12 +57,20 @@ class Usuario extends Authenticatable implements JWTSubject
 
     public function getFotoUsuarioAttribute($value)
     {
-        return $value ? url('api/storage/' . $value) : null;
+        if (!$value) {
+            return null;
+        }
+        $path = ltrim(str_replace(['storage/', 'public/', 'api/'], '', $value), '/');
+        return url('storage/' . $path);
     }
 
     public function getFirmaDigitalAttribute($value)
     {
-        return $value ? url('api/storage/' . $value) : null;
+        if (!$value) {
+            return null;
+        }
+        $path = ltrim(str_replace(['storage/', 'public/', 'api/'], '', $value), '/');
+        return url('storage/' . $path);
     }
 
     protected $hidden = [
