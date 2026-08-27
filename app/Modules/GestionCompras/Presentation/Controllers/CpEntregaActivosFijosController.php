@@ -96,7 +96,7 @@ class CpEntregaActivosFijosController extends Controller
             $search = $request->search;
             $query->where(function($q) use ($search) {
                 $q->whereHas('personal', function($qPersonal) use ($search) {
-                    $qPersonal->where('nombres', 'like', "%{$search}%")
+                    $qPersonal->where('nombre', 'like', "%{$search}%")
                               ->orWhere('apellidos', 'like', "%{$search}%")
                               ->orWhere('documento', 'like', "%{$search}%");
                 })->orWhereHas('coordinador', function($qCoord) use ($search) {
