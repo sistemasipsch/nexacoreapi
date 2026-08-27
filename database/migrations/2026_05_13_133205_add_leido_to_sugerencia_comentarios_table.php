@@ -11,9 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('sugerencia_comentarios', function (Blueprint $table) {
-            $table->boolean('leido')->default(false)->after('mensaje');
-        });
+        if (Schema::hasTable('sugerencia_comentarios') && !Schema::hasColumn('sugerencia_comentarios', 'leido')) {
+            Schema::table('sugerencia_comentarios', function (Blueprint $table) {
+                $table->boolean('leido')->default(false)->after('mensaje');
+            });
+        }
     }
 
     /**
@@ -21,8 +23,10 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('sugerencia_comentarios', function (Blueprint $table) {
-            $table->dropColumn('leido');
-        });
+        if (Schema::hasTable('sugerencia_comentarios') && Schema::hasColumn('sugerencia_comentarios', 'leido')) {
+            Schema::table('sugerencia_comentarios', function (Blueprint $table) {
+                $table->dropColumn('leido');
+            });
+        }
     }
 };

@@ -11,9 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('personal', function (Blueprint $table) {
-            $table->tinyInteger('estado')->nullable()->default(1)->after('cargo_id')->comment('0: Inactivo, 1: Activo');
-        });
+        if (Schema::hasTable('personal') && !Schema::hasColumn('personal', 'estado')) {
+            Schema::table('personal', function (Blueprint $table) {
+                $table->tinyInteger('estado')->nullable()->default(1)->after('cargo_id')->comment('0: Inactivo, 1: Activo');
+            });
+        }
     }
 
 

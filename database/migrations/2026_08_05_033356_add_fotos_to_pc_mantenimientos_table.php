@@ -11,10 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('pc_mantenimientos', function (Blueprint $table) {
-            $table->string('foto_antes')->nullable()->after('unidad_cd');
-            $table->string('foto_despues')->nullable()->after('foto_antes');
-        });
+        if (Schema::hasTable('pc_mantenimientos')) {
+            Schema::table('pc_mantenimientos', function (Blueprint $table) {
+                if (!Schema::hasColumn('pc_mantenimientos', 'foto_antes')) {
+                    $table->string('foto_antes')->nullable()->after('unidad_cd');
+                }
+                if (!Schema::hasColumn('pc_mantenimientos', 'foto_despues')) {
+                    $table->string('foto_despues')->nullable()->after('foto_antes');
+                }
+            });
+        }
     }
 
     /**
@@ -22,8 +28,14 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('pc_mantenimientos', function (Blueprint $table) {
-            $table->dropColumn(['foto_antes', 'foto_despues']);
-        });
+        if (Schema::hasTable('pc_mantenimientos')) {
+            Schema::table('pc_mantenimientos', function (Blueprint $table) {
+                $columns = ['foto_antes', 'foto_despues'];
+                $existing = array_filter($columns, fn ($c) => Schema::hasColumn('pc_mantenimientos', $c));
+                if (!empty($existing)) {
+                    $table->dropColumn(array_values($existing));
+                }
+            });
+        }
     }
 };

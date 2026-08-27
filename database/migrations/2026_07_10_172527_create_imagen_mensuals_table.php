@@ -11,16 +11,18 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('imagen_mensual', function (Blueprint $table) {
-            $table->id();
-            $table->string('nombre_original');
-            $table->string('nombre_archivo');
-            $table->string('ruta');
-            $table->integer('subido_por');
-            $table->timestamps();
+        if (!Schema::hasTable('imagen_mensual')) {
+            Schema::create('imagen_mensual', function (Blueprint $table) {
+                $table->id();
+                $table->string('nombre_original');
+                $table->string('nombre_archivo');
+                $table->string('ruta');
+                $table->integer('subido_por');
+                $table->timestamps();
 
-            $table->foreign('subido_por')->references('id')->on('usuarios');
-        });
+                $table->foreign('subido_por')->references('id')->on('usuarios');
+            });
+        }
     }
 
     /**

@@ -11,9 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('cp_items_pedidos', function (Blueprint $table) {
-            $table->dateTime('fecha_entregado')->nullable();
-        });
+        if (Schema::hasTable('cp_items_pedidos') && !Schema::hasColumn('cp_items_pedidos', 'fecha_entregado')) {
+            Schema::table('cp_items_pedidos', function (Blueprint $table) {
+                $table->dateTime('fecha_entregado')->nullable();
+            });
+        }
     }
 
     /**
@@ -21,8 +23,10 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('cp_items_pedidos', function (Blueprint $table) {
-            $table->dropColumn('fecha_entregado');
-        });
+        if (Schema::hasTable('cp_items_pedidos') && Schema::hasColumn('cp_items_pedidos', 'fecha_entregado')) {
+            Schema::table('cp_items_pedidos', function (Blueprint $table) {
+                $table->dropColumn('fecha_entregado');
+            });
+        }
     }
 };

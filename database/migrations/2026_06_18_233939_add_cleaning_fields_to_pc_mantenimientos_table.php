@@ -11,13 +11,25 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('pc_mantenimientos', function (Blueprint $table) {
-            $table->boolean('cpu')->default(false)->after('estado');
-            $table->boolean('pantalla')->default(false)->after('cpu');
-            $table->boolean('teclado')->default(false)->after('pantalla');
-            $table->boolean('mouse')->default(false)->after('teclado');
-            $table->boolean('unidad_cd')->default(false)->after('mouse');
-        });
+        if (Schema::hasTable('pc_mantenimientos')) {
+            Schema::table('pc_mantenimientos', function (Blueprint $table) {
+                if (!Schema::hasColumn('pc_mantenimientos', 'cpu')) {
+                    $table->boolean('cpu')->default(false)->after('estado');
+                }
+                if (!Schema::hasColumn('pc_mantenimientos', 'pantalla')) {
+                    $table->boolean('pantalla')->default(false)->after('cpu');
+                }
+                if (!Schema::hasColumn('pc_mantenimientos', 'teclado')) {
+                    $table->boolean('teclado')->default(false)->after('pantalla');
+                }
+                if (!Schema::hasColumn('pc_mantenimientos', 'mouse')) {
+                    $table->boolean('mouse')->default(false)->after('teclado');
+                }
+                if (!Schema::hasColumn('pc_mantenimientos', 'unidad_cd')) {
+                    $table->boolean('unidad_cd')->default(false)->after('mouse');
+                }
+            });
+        }
     }
 
     /**
@@ -25,8 +37,14 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('pc_mantenimientos', function (Blueprint $table) {
-            $table->dropColumn(['cpu', 'pantalla', 'teclado', 'mouse', 'unidad_cd']);
-        });
+        if (Schema::hasTable('pc_mantenimientos')) {
+            Schema::table('pc_mantenimientos', function (Blueprint $table) {
+                $columns = ['cpu', 'pantalla', 'teclado', 'mouse', 'unidad_cd'];
+                $existing = array_filter($columns, fn ($c) => Schema::hasColumn('pc_mantenimientos', $c));
+                if (!empty($existing)) {
+                    $table->dropColumn(array_values($existing));
+                }
+            });
+        }
     }
 };
