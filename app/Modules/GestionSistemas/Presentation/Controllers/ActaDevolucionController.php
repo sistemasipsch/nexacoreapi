@@ -103,8 +103,8 @@ class ActaDevolucionController extends Controller
                     'id' => $acta->getId(),
                     'entrega_id' => $acta->getEntregaId(),
                     'fecha_devolucion' => $acta->getFechaDevolucion(),
-                    'firma_entrega' => $acta->getFirmaEntrega() ? asset('storage/' . $acta->getFirmaEntrega()) : null,
-                    'firma_recibe' => $acta->getFirmaRecibe() ? asset('storage/' . $acta->getFirmaRecibe()) : null,
+                    'firma_entrega' => $acta->getFirmaEntrega() ? url('storage/' . ltrim(str_replace(['storage/', 'public/'], '', $acta->getFirmaEntrega()), '/')) : null,
+                    'firma_recibe' => $acta->getFirmaRecibe() ? url('storage/' . ltrim(str_replace(['storage/', 'public/'], '', $acta->getFirmaRecibe()), '/')) : null,
                     'observaciones' => $acta->getObservaciones()
                 ]
             ], 201);
@@ -169,8 +169,8 @@ class ActaDevolucionController extends Controller
                 'entrega_id' => $acta->entrega_id,
                 'fecha_devolucion' => $acta->fecha_devolucion,
                 'observaciones' => $acta->observaciones,
-                'firma_entrega' => $acta->firma_entrega ? asset('storage/' . $acta->firma_entrega) : null,
-                'firma_recibe' => $acta->firma_recibe ? asset('storage/' . $acta->firma_recibe) : null,
+                'firma_entrega' => $acta->firma_entrega_url,
+                'firma_recibe' => $acta->firma_recibe_url,
                 'entrega' => $acta->entrega ? [
                     'id' => $acta->entrega->id,
                     'fecha_entrega' => $acta->entrega->fecha_entrega,

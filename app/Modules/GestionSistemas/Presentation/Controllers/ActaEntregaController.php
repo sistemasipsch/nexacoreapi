@@ -212,8 +212,8 @@ class ActaEntregaController extends Controller
                     'cargo' => $acta->funcionario->cargo,
                 ] : null,
                 'fecha_entrega' => $acta->fecha_entrega,
-                'firma_entrega' => $acta->firma_entrega ? asset('storage/' . $acta->firma_entrega) : null,
-                'firma_recibe' => $acta->firma_recibe ? asset('storage/' . $acta->firma_recibe) : null,
+                'firma_entrega' => $acta->firma_entrega_url,
+                'firma_recibe' => $acta->firma_recibe_url,
                 'estado' => $acta->estado,
                 'devuelto' => $acta->devuelto,
                 'perifericos' => $perifericos

@@ -26,6 +26,35 @@ class PcEntrega extends Model
         'funcionario_id' => 'integer',
     ];
 
+    protected $appends = ['firma_entrega_url', 'firma_recibe_url'];
+
+    public function getFirmaEntregaUrlAttribute(): ?string
+    {
+        $raw = $this->getRawOriginal('firma_entrega') ?? $this->attributes['firma_entrega'] ?? null;
+        return $this->formatFirmaUrl($raw);
+    }
+
+    public function getFirmaRecibeUrlAttribute(): ?string
+    {
+        $raw = $this->getRawOriginal('firma_recibe') ?? $this->attributes['firma_recibe'] ?? null;
+        if ($raw) {
+            return $this->formatFirmaUrl($raw);
+        }
+        return $this->funcionario ? $this->funcionario->firma_url : null;
+    }
+
+    private function formatFirmaUrl(?string $value): ?string
+    {
+        if (!$value) {
+            return null;
+        }
+        if (str_starts_with($value, 'http://') || str_starts_with($value, 'https://') || str_starts_with($value, 'data:image')) {
+            return $value;
+        }
+        $path = ltrim(str_replace(['storage/', 'public/'], '', $value), '/');
+        return url('storage/' . $path);
+    }
+
     public function equipo()
     {
         return $this->belongsTo(PcEquipo::class, 'equipo_id');

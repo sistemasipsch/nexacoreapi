@@ -51,7 +51,8 @@ class ExportarActaEntregaPdfUseCase
         $row = 14;
 
         $firmaEntrega = $acta->firma_entrega;
-        $firmaRecibe = $acta->firma_recibe ?: optional($acta->funcionario)->firma;
+        $firmaPersonalRecibe = optional($acta->funcionario)->firma;
+        $firmaRecibe = $acta->firma_recibe;
 
         // Fila 14: Equipo Principal
         if ($acta->equipo) {
@@ -66,7 +67,7 @@ class ExportarActaEntregaPdfUseCase
             $sheet->setCellValue('AJ' . $row, $acta->devuelto ? Carbon::parse($acta->devuelto)->format('Y-m-d') : '');
             
             $this->insertarFirma($sheet, $firmaEntrega, 'AD' . $row);
-            $this->insertarFirma($sheet, $firmaRecibe, 'AG' . $row);
+            $this->insertarFirma($sheet, $firmaRecibe, 'AG' . $row, $firmaPersonalRecibe);
 
             $row++;
         }
@@ -85,7 +86,7 @@ class ExportarActaEntregaPdfUseCase
                 $sheet->setCellValue('AJ' . $row, $acta->devuelto ? Carbon::parse($acta->devuelto)->format('Y-m-d') : '');
                 
                 $this->insertarFirma($sheet, $firmaEntrega, 'AD' . $row);
-                $this->insertarFirma($sheet, $firmaRecibe, 'AG' . $row);
+                $this->insertarFirma($sheet, $firmaRecibe, 'AG' . $row, $firmaPersonalRecibe);
                 $row++;
             }
         }
@@ -124,14 +125,10 @@ class ExportarActaEntregaPdfUseCase
         }
     }
 
-    private function insertarFirma($sheet, $path, $cell)
+    private function insertarFirma($sheet, $path, $cell, $fallbackPath = null)
     {
-        if (!$path) {
-            return;
-        }
-
-        $cleanPath = ltrim(str_replace('storage/', '', $path), '/');
-        if (Storage::disk('public')->exists($cleanPath)) {
+        $cleanPath = $path ? ltrim(str_replace(['storage/', 'public/'], '', $path), '/') : null;
+        if ($cleanPath && Storage::disk('public')->exists($cleanPath)) {
             $drawing = new Drawing();
             $drawing->setName('Firma');
             $drawing->setDescription('Firma');
@@ -139,6 +136,20 @@ class ExportarActaEntregaPdfUseCase
             $drawing->setCoordinates($cell);
             $drawing->setHeight(25);
             $drawing->setWorksheet($sheet);
+            return;
+        }
+
+        if ($fallbackPath) {
+            $cleanFallback = ltrim(str_replace(['storage/', 'public/'], '', $fallbackPath), '/');
+            if (Storage::disk('public')->exists($cleanFallback)) {
+                $drawing = new Drawing();
+                $drawing->setName('Firma');
+                $drawing->setDescription('Firma');
+                $drawing->setPath(storage_path('app/public/' . $cleanFallback));
+                $drawing->setCoordinates($cell);
+                $drawing->setHeight(25);
+                $drawing->setWorksheet($sheet);
+            }
         }
     }
 
