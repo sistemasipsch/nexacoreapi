@@ -36,17 +36,31 @@ class ActaEntregaController extends Controller
         path: '/api/gestion-sistemas/actas-entrega',
         tags: ['Actas Entrega'],
         summary: 'Listar actas de entrega',
-        description: 'Obtiene todas las actas de entrega.',
+        description: 'Obtiene todas las actas de entrega con opción de filtrar por sede.',
         security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'sede_id', in: 'query', required: false, schema: new OA\Schema(type: 'string'), description: 'ID de la sede para filtrar')
+        ],
         responses: [
             new OA\Response(response: 200, description: 'Lista de actas de entrega')
         ]
     )]
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        // Para simplificar y mantener las relaciones en la lista, usamos Eloquent directo en la capa de presentación o creamos un ListUseCase.
-        // Usaremos Eloquent directamente para la vista de lista rápida, como es común en pragmático DDD/CQRS.
-        $entregas = \App\Models\PcEntrega::with(['equipo', 'funcionario'])->orderBy('id', 'desc')->get();
+        $query = \App\Models\PcEntrega::with([
+            'equipo.sede',
+            'equipo.area',
+            'funcionario.cargo'
+        ])->orderBy('id', 'desc');
+
+        if ($request->filled('sede_id') && $request->input('sede_id') !== 'todas') {
+            $sedeId = $request->input('sede_id');
+            $query->whereHas('equipo', function ($q) use ($sedeId) {
+                $q->where('sede_id', $sedeId);
+            });
+        }
+
+        $entregas = $query->get();
         return response()->json($entregas);
     }
 
@@ -167,7 +181,8 @@ class ActaEntregaController extends Controller
     {
         // Pragmatic CQRS: Usamos Eloquent directo para lectura (Read Model)
         $acta = \App\Models\PcEntrega::with([
-            'equipo',
+            'equipo.sede',
+            'equipo.area',
             'funcionario.cargo',
             'perifericos.inventario'
         ])->find($id);
@@ -201,9 +216,19 @@ class ActaEntregaController extends Controller
                 'id' => $acta->id,
                 'equipo_id' => $acta->equipo_id,
                 'equipo' => $acta->equipo ? [
+                    'id' => $acta->equipo->id,
                     'serial' => $acta->equipo->serial,
                     'marca' => $acta->equipo->marca,
                     'modelo' => $acta->equipo->modelo,
+                    'nombre_equipo' => $acta->equipo->nombre_equipo,
+                    'sede' => $acta->equipo->sede ? [
+                        'id' => $acta->equipo->sede->id,
+                        'nombre' => $acta->equipo->sede->nombre,
+                    ] : null,
+                    'area' => $acta->equipo->area ? [
+                        'id' => $acta->equipo->area->id,
+                        'nombre' => $acta->equipo->area->nombre,
+                    ] : null,
                 ] : null,
                 'funcionario_id' => $acta->funcionario_id,
                 'funcionario' => $acta->funcionario ? [
