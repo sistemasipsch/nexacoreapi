@@ -78,27 +78,85 @@ class PcEquipoController extends Controller
             '/home/u528159717/public_html/equipos/' . $filename,
             '/home/u528159717/public_html/formsistemas/equipos/' . $filename,
             '/home/u528159717/public_html/jundspro/equipos/' . $filename,
+            '/home/u528159717/public_html/nexacore/equipos/' . $filename,
             '/home/u528159717/public_html/nexacoreapi/storage/app/public/equipos/' . $filename,
         ];
 
+        $foundPath = null;
+
         foreach ($candidates as $filePath) {
             if (file_exists($filePath) && is_file($filePath)) {
-                $standardPath = storage_path('app/public/equipos/' . $filename);
-                if (!file_exists($standardPath)) {
-                    $dir = dirname($standardPath);
-                    if (!file_exists($dir)) @mkdir($dir, 0777, true);
-                    @copy($filePath, $standardPath);
-                }
-
-                $mimeType = @mime_content_type($filePath) ?: 'image/jpeg';
-                return response()->file($filePath, [
-                    'Content-Type' => $mimeType,
-                    'Cache-Control' => 'public, max-age=31536000'
-                ]);
+                $foundPath = $filePath;
+                break;
             }
         }
 
+        // Si no se encuentra en la lista fija, realizar búsqueda recursiva en el servidor
+        if (!$foundPath) {
+            $searchBases = [
+                '/home/u528159717/public_html',
+                '/home/u528159717',
+                base_path('../..'),
+            ];
+
+            foreach ($searchBases as $sb) {
+                if (is_dir($sb)) {
+                    $found = $this->findFileRecursive($sb, $filename, 0, 4);
+                    if ($found) {
+                        $foundPath = $found;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if ($foundPath) {
+            $standardPath = storage_path('app/public/equipos/' . $filename);
+            if (!file_exists($standardPath)) {
+                $dir = dirname($standardPath);
+                if (!file_exists($dir)) @mkdir($dir, 0777, true);
+                @copy($foundPath, $standardPath);
+            }
+
+            $mimeType = @mime_content_type($foundPath) ?: 'image/jpeg';
+            return response()->file($foundPath, [
+                'Content-Type' => $mimeType,
+                'Cache-Control' => 'public, max-age=31536000'
+            ]);
+        }
+
         return response()->json(['message' => 'Imagen no encontrada en el servidor'], 404);
+    }
+
+    private function findFileRecursive(string $dir, string $filename, int $depth = 0, int $maxDepth = 4): ?string
+    {
+        if ($depth > $maxDepth || !is_dir($dir) || !is_readable($dir)) {
+            return null;
+        }
+
+        $base = basename($dir);
+        if (in_array($base, ['node_modules', 'vendor', '.git', 'cache'])) {
+            return null;
+        }
+
+        $directCheck = $dir . DIRECTORY_SEPARATOR . $filename;
+        if (file_exists($directCheck) && is_file($directCheck)) {
+            return $directCheck;
+        }
+
+        $items = @scandir($dir);
+        if ($items === false) return null;
+
+        foreach ($items as $item) {
+            if ($item === '.' || $item === '..') continue;
+            $path = $dir . DIRECTORY_SEPARATOR . $item;
+            if (is_dir($path)) {
+                $res = $this->findFileRecursive($path, $filename, $depth + 1, $maxDepth);
+                if ($res) return $res;
+            }
+        }
+
+        return null;
     }
 
     #[OA\Post(

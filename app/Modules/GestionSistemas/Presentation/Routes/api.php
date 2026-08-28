@@ -25,7 +25,6 @@ Route::middleware('auth:api')->prefix('gestion-sistemas')->group(function () {
 
     // PcEquipos
     Route::post('/pc-equipos/auto-recuperar-imagenes', [\App\Modules\GestionSistemas\Presentation\Controllers\PcEquipoController::class, 'autoRecuperarImagenes']);
-    Route::get('/pc-equipos/imagen/{filename}', [\App\Modules\GestionSistemas\Presentation\Controllers\PcEquipoController::class, 'servirImagen']);
     Route::get('/pc-equipos/buscar', [\App\Modules\GestionSistemas\Presentation\Controllers\PcEquipoController::class, 'buscar']);
     Route::match(['put', 'post'], '/pc-equipos/{id}', [\App\Modules\GestionSistemas\Presentation\Controllers\PcEquipoController::class, 'update']);
     Route::apiResource('/pc-equipos', \App\Modules\GestionSistemas\Presentation\Controllers\PcEquipoController::class);
@@ -59,4 +58,9 @@ Route::middleware('auth:api')->group(function () {
     Route::post('/imagen-mensual', [\App\Modules\GestionSistemas\Presentation\Controllers\ImagenMensualController::class, 'subir']);
     Route::get('/imagen-mensual', [\App\Modules\GestionSistemas\Presentation\Controllers\ImagenMensualController::class, 'descargar']);
     Route::delete('/imagen-mensual', [\App\Modules\GestionSistemas\Presentation\Controllers\ImagenMensualController::class, 'eliminar']);
+});
+
+// Rutas Públicas de Archivos e Imágenes de Equipos
+Route::prefix('gestion-sistemas')->group(function () {
+    Route::get('/pc-equipos/imagen/{filename}', [\App\Modules\GestionSistemas\Presentation\Controllers\PcEquipoController::class, 'servirImagen']);
 });
