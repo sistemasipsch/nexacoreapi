@@ -91,14 +91,28 @@ class ActaEntregaRepository implements ActaEntregaRepositoryInterface
             }
         }
 
+        $fechaEntrega = date('Y-m-d');
+        if ($model->fecha_entrega) {
+            $fechaEntrega = $model->fecha_entrega instanceof \Carbon\Carbon 
+                ? $model->fecha_entrega->format('Y-m-d') 
+                : substr((string)$model->fecha_entrega, 0, 10);
+        }
+
+        $fechaDevuelto = null;
+        if ($model->devuelto) {
+            $fechaDevuelto = $model->devuelto instanceof \Carbon\Carbon 
+                ? $model->devuelto->format('Y-m-d') 
+                : substr((string)$model->devuelto, 0, 10);
+        }
+
         return new ActaEntrega(
             $model->equipo_id,
             $model->funcionario_id,
-            $model->fecha_entrega->format('Y-m-d'),
+            $fechaEntrega,
             $model->firma_entrega,
             $model->firma_recibe,
             $model->estado,
-            $model->devuelto ? $model->devuelto->format('Y-m-d') : null,
+            $fechaDevuelto,
             $perifericosEntities,
             $model->id
         );

@@ -201,6 +201,7 @@ class ActaEntregaController extends Controller
                 'cantidad' => $p->cantidad,
                 'observaciones' => $p->observaciones,
                 'inventario' => $p->inventario ? [
+                    'id' => $p->inventario->id,
                     'codigo' => $p->inventario->codigo,
                     'nombre' => $p->inventario->nombre,
                     'marca' => $p->inventario->marca,
@@ -209,6 +210,13 @@ class ActaEntregaController extends Controller
                 ] : null
             ];
         });
+
+        $fechaEntrega = null;
+        if ($acta->fecha_entrega) {
+            $fechaEntrega = $acta->fecha_entrega instanceof \Carbon\Carbon 
+                ? $acta->fecha_entrega->format('Y-m-d') 
+                : substr((string)$acta->fecha_entrega, 0, 10);
+        }
 
         return response()->json([
             'success' => true,
@@ -221,10 +229,13 @@ class ActaEntregaController extends Controller
                     'marca' => $acta->equipo->marca,
                     'modelo' => $acta->equipo->modelo,
                     'nombre_equipo' => $acta->equipo->nombre_equipo,
+                    'numero_inventario' => $acta->equipo->numero_inventario,
+                    'sede_id' => $acta->equipo->sede_id,
                     'sede' => $acta->equipo->sede ? [
                         'id' => $acta->equipo->sede->id,
                         'nombre' => $acta->equipo->sede->nombre,
                     ] : null,
+                    'area_id' => $acta->equipo->area_id,
                     'area' => $acta->equipo->area ? [
                         'id' => $acta->equipo->area->id,
                         'nombre' => $acta->equipo->area->nombre,
@@ -232,11 +243,14 @@ class ActaEntregaController extends Controller
                 ] : null,
                 'funcionario_id' => $acta->funcionario_id,
                 'funcionario' => $acta->funcionario ? [
+                    'id' => $acta->funcionario->id,
                     'nombre' => $acta->funcionario->nombre,
                     'cedula' => $acta->funcionario->cedula,
                     'cargo' => $acta->funcionario->cargo,
+                    'firma' => $acta->funcionario->firma,
+                    'firma_url' => $acta->funcionario->firma_url ?? ($acta->funcionario->firma ? url('storage/' . ltrim(str_replace(['public/', 'storage/'], '', $acta->funcionario->firma), '/')) : null),
                 ] : null,
-                'fecha_entrega' => $acta->fecha_entrega,
+                'fecha_entrega' => $fechaEntrega,
                 'firma_entrega' => $acta->firma_entrega_url,
                 'firma_recibe' => $acta->firma_recibe_url,
                 'estado' => $acta->estado,
@@ -322,16 +336,19 @@ class ActaEntregaController extends Controller
         ]);
 
         $perifericosData = null;
-        if ($request->has('perifericos') && !empty($request->input('perifericos'))) {
+        if ($request->has('perifericos') && $request->input('perifericos') !== null) {
             $perifericosData = [];
-            $decoded = json_decode($request->input('perifericos'), true);
+            $raw = $request->input('perifericos');
+            $decoded = is_string($raw) ? json_decode($raw, true) : $raw;
             if (is_array($decoded)) {
                 foreach ($decoded as $item) {
-                    $perifericosData[] = new PerifericoDTO(
-                        $item['inventario_id'],
-                        $item['cantidad'] ?? 1,
-                        $item['observaciones'] ?? null
-                    );
+                    if (isset($item['inventario_id'])) {
+                        $perifericosData[] = new PerifericoDTO(
+                            (int) $item['inventario_id'],
+                            (int) ($item['cantidad'] ?? 1),
+                            $item['observaciones'] ?? null
+                        );
+                    }
                 }
             }
         }
