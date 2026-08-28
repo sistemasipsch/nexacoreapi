@@ -39,9 +39,66 @@ class PcEquipoController extends Controller
     )]
     public function index(Request $request)
     {
+        // En cada llamada al listado, ejecutamos un auto-escaneo liviano en backend para recuperar fotos huérfanas
+        try {
+            $recoveryUseCase = new \App\Modules\GestionSistemas\Application\UseCases\EquiposComputo\AutoRecuperarImagenesEquiposUseCase();
+            $recoveryUseCase->execute();
+        } catch (\Throwable $e) {
+            // Continuar sin interrumpir el listado
+        }
+
         $useCase = new ListarPcEquiposUseCase();
         $equipos = $useCase->execute($request->get('q'), $request->get('sede_id'));
         return ApiResponse::success($equipos, 'Lista de equipos obtenida exitosamente');
+    }
+
+    public function autoRecuperarImagenes(Request $request)
+    {
+        try {
+            $useCase = new \App\Modules\GestionSistemas\Application\UseCases\EquiposComputo\AutoRecuperarImagenesEquiposUseCase();
+            $stats = $useCase->execute();
+            return ApiResponse::success($stats, 'Recuperación de imágenes completada');
+        } catch (\Exception $e) {
+            return ApiResponse::error('Error al recuperar imágenes: ' . $e->getMessage(), 500);
+        }
+    }
+
+    public function servirImagen(string $filename)
+    {
+        $filename = basename($filename);
+        $candidates = [
+            storage_path('app/public/equipos/' . $filename),
+            storage_path('app/public/pcEquipos/' . $filename),
+            public_path('storage/equipos/' . $filename),
+            public_path('storage/pcEquipos/' . $filename),
+            public_path('equipos/' . $filename),
+            base_path('../equipos/' . $filename),
+            base_path('../../equipos/' . $filename),
+            base_path('../../../equipos/' . $filename),
+            '/home/u528159717/public_html/equipos/' . $filename,
+            '/home/u528159717/public_html/formsistemas/equipos/' . $filename,
+            '/home/u528159717/public_html/jundspro/equipos/' . $filename,
+            '/home/u528159717/public_html/nexacoreapi/storage/app/public/equipos/' . $filename,
+        ];
+
+        foreach ($candidates as $filePath) {
+            if (file_exists($filePath) && is_file($filePath)) {
+                $standardPath = storage_path('app/public/equipos/' . $filename);
+                if (!file_exists($standardPath)) {
+                    $dir = dirname($standardPath);
+                    if (!file_exists($dir)) @mkdir($dir, 0777, true);
+                    @copy($filePath, $standardPath);
+                }
+
+                $mimeType = @mime_content_type($filePath) ?: 'image/jpeg';
+                return response()->file($filePath, [
+                    'Content-Type' => $mimeType,
+                    'Cache-Control' => 'public, max-age=31536000'
+                ]);
+            }
+        }
+
+        return response()->json(['message' => 'Imagen no encontrada en el servidor'], 404);
     }
 
     #[OA\Post(

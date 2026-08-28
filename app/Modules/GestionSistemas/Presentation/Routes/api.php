@@ -24,6 +24,8 @@ Route::middleware('auth:api')->prefix('gestion-sistemas')->group(function () {
     Route::delete('/actas-devolucion/{id}', [ActaDevolucionController::class, 'destroy']);
 
     // PcEquipos
+    Route::post('/pc-equipos/auto-recuperar-imagenes', [\App\Modules\GestionSistemas\Presentation\Controllers\PcEquipoController::class, 'autoRecuperarImagenes']);
+    Route::get('/pc-equipos/imagen/{filename}', [\App\Modules\GestionSistemas\Presentation\Controllers\PcEquipoController::class, 'servirImagen']);
     Route::get('/pc-equipos/buscar', [\App\Modules\GestionSistemas\Presentation\Controllers\PcEquipoController::class, 'buscar']);
     Route::match(['put', 'post'], '/pc-equipos/{id}', [\App\Modules\GestionSistemas\Presentation\Controllers\PcEquipoController::class, 'update']);
     Route::apiResource('/pc-equipos', \App\Modules\GestionSistemas\Presentation\Controllers\PcEquipoController::class);
