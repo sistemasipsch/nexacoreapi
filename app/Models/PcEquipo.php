@@ -47,6 +47,24 @@ class PcEquipo extends Model
         'creado_por' => 'integer',
     ];
 
+    public function getImagenUrlAttribute($value): ?string
+    {
+        if (!$value) {
+            return null;
+        }
+
+        if (str_starts_with($value, 'http://') || str_starts_with($value, 'https://') || str_starts_with($value, 'data:image')) {
+            return $value;
+        }
+
+        $clean = ltrim($value, '/');
+        if (str_starts_with($clean, 'storage/')) {
+            return $clean;
+        }
+
+        return 'storage/' . $clean;
+    }
+
     public function sede()
     {
         return $this->belongsTo(Sede::class, 'sede_id');
