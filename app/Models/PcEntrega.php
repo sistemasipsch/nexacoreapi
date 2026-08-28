@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 class PcEntrega extends Model
 {
@@ -38,14 +39,32 @@ class PcEntrega extends Model
             }
         }
 
-        // Fallback al usuario administrador/sistemas con firma digital registrada
+        // Fallback automático al usuario administrador/sistemas con firma digital registrada
         try {
-            $admin = Usuario::whereNotNull('firma_digital')->where('firma_digital', '!=', '')->first();
+            $admin = Usuario::whereNotNull('firma_digital')
+                ->where('firma_digital', '!=', '')
+                ->where(function ($q) {
+                    $q->whereHas('rol', function ($r) {
+                        $r->where('nombre', 'LIKE', '%admin%')
+                          ->orWhere('nombre', 'LIKE', '%sistema%')
+                          ->orWhere('nombre', 'LIKE', '%super%');
+                    })
+                    ->orWhere('usuario', 'LIKE', '%admin%')
+                    ->orWhere('rol_id', 1);
+                })
+                ->first();
+
+            if (!$admin) {
+                $admin = Usuario::whereNotNull('firma_digital')
+                    ->where('firma_digital', '!=', '')
+                    ->first();
+            }
+
             if ($admin && $admin->firma_digital) {
                 return $admin->firma_digital;
             }
         } catch (\Throwable $e) {
-            // Ignorar en caso de que no haya conexión a base de datos en algún contexto
+            // Ignorar en caso de error
         }
 
         return null;
@@ -62,8 +81,18 @@ class PcEntrega extends Model
         }
 
         // Fallback a la firma registrada en el perfil del funcionario
-        if ($this->relationLoaded('funcionario') && $this->funcionario) {
-            return $this->funcionario->firma_url ?? $this->funcionario->firma;
+        try {
+            if ($this->relationLoaded('funcionario') && $this->funcionario) {
+                return $this->funcionario->firma_url ?? $this->funcionario->firma;
+            }
+            if ($this->funcionario_id) {
+                $func = Personal::find($this->funcionario_id);
+                if ($func) {
+                    return $func->firma_url ?? $func->firma;
+                }
+            }
+        } catch (\Throwable $e) {
+            // Ignorar en caso de error
         }
 
         return null;
@@ -78,6 +107,25 @@ class PcEntrega extends Model
             return $value;
         }
         $path = ltrim(str_replace(['public/', 'api/', 'storage/'], '', $value), '/');
+
+        // Validar que el archivo exista en disco para no retornar imágenes rotas
+        $existe = false;
+        try {
+            if (Storage::disk('public')->exists($path)) {
+                $existe = true;
+            } elseif (file_exists(public_path('storage/' . $path))) {
+                $existe = true;
+            } elseif (file_exists(storage_path('app/public/' . $path))) {
+                $existe = true;
+            }
+        } catch (\Throwable $e) {
+            $existe = true; // Si hay error verificando, permitir
+        }
+
+        if (!$existe) {
+            return null; // Retornar null para que el accessor active el fallback automático a la firma de admin
+        }
+
         return url('storage/' . $path);
     }
 
