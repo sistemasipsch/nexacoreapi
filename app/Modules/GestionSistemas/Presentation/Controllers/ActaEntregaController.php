@@ -56,7 +56,33 @@ class ActaEntregaController extends Controller
         if ($request->filled('sede_id') && $request->input('sede_id') !== 'todas') {
             $sedeId = $request->input('sede_id');
             $query->whereHas('equipo', function ($q) use ($sedeId) {
-                $q->where('sede_id', $sedeId);
+                if (is_numeric($sedeId)) {
+                    $q->where('sede_id', (int) $sedeId);
+                } else {
+                    $q->whereHas('sede', function ($s) use ($sedeId) {
+                        $s->where('nombre', 'LIKE', '%' . $sedeId . '%');
+                    });
+                }
+            });
+        }
+
+        if ($request->filled('q')) {
+            $term = '%' . $request->input('q') . '%';
+            $query->where(function ($q) use ($term) {
+                $q->whereHas('equipo', function ($sub) use ($term) {
+                    $sub->where('serial', 'LIKE', $term)
+                        ->orWhere('numero_inventario', 'LIKE', $term)
+                        ->orWhere('marca', 'LIKE', $term)
+                        ->orWhere('modelo', 'LIKE', $term)
+                        ->orWhere('nombre_equipo', 'LIKE', $term)
+                        ->orWhereHas('sede', function ($s) use ($term) {
+                            $s->where('nombre', 'LIKE', $term);
+                        });
+                })
+                ->orWhereHas('funcionario', function ($sub) use ($term) {
+                    $sub->where('nombre', 'LIKE', $term)
+                        ->orWhere('cedula', 'LIKE', $term);
+                });
             });
         }
 
