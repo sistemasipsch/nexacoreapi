@@ -31,13 +31,42 @@ class PcEntrega extends Model
     public function getFirmaEntregaUrlAttribute(): ?string
     {
         $raw = $this->getRawOriginal('firma_entrega') ?? $this->attributes['firma_entrega'] ?? null;
-        return $this->formatFirmaUrl($raw);
+        if ($raw) {
+            $formatted = $this->formatFirmaUrl($raw);
+            if ($formatted) {
+                return $formatted;
+            }
+        }
+
+        // Fallback al usuario administrador/sistemas con firma digital registrada
+        try {
+            $admin = Usuario::whereNotNull('firma_digital')->where('firma_digital', '!=', '')->first();
+            if ($admin && $admin->firma_digital) {
+                return $admin->firma_digital;
+            }
+        } catch (\Throwable $e) {
+            // Ignorar en caso de que no haya conexión a base de datos en algún contexto
+        }
+
+        return null;
     }
 
     public function getFirmaRecibeUrlAttribute(): ?string
     {
         $raw = $this->getRawOriginal('firma_recibe') ?? $this->attributes['firma_recibe'] ?? null;
-        return $this->formatFirmaUrl($raw);
+        if ($raw) {
+            $formatted = $this->formatFirmaUrl($raw);
+            if ($formatted) {
+                return $formatted;
+            }
+        }
+
+        // Fallback a la firma registrada en el perfil del funcionario
+        if ($this->relationLoaded('funcionario') && $this->funcionario) {
+            return $this->funcionario->firma_url ?? $this->funcionario->firma;
+        }
+
+        return null;
     }
 
     private function formatFirmaUrl(?string $value): ?string

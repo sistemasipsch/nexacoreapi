@@ -501,4 +501,35 @@ class ActaEntregaController extends Controller
             ], 500);
         }
     }
+
+    #[OA\Post(
+        path: '/api/gestion-sistemas/actas-entrega/sincronizar-firmas-admin',
+        summary: 'Revisa todas las actas y asigna la firma del perfil admin a las que les falte firma de entrega',
+        tags: ['ActasEntrega'],
+        responses: [
+            new OA\Response(response: 200, description: 'Sincronización completada exitosamente'),
+            new OA\Response(response: 500, description: 'Error interno del servidor')
+        ]
+    )]
+    public function sincronizarFirmasAdmin(
+        Request $request,
+        \App\Modules\GestionSistemas\Application\UseCases\ActasEntrega\SincronizarFirmaAdminActasEntregaUseCase $useCase
+    ): JsonResponse {
+        try {
+            $userId = $request->input('user_id') ? (int) $request->input('user_id') : ($request->user()?->id ?? null);
+            $resultado = $useCase->execute($userId);
+
+            return response()->json([
+                'success' => true,
+                'message' => "Revisión completada: {$resultado['actas_actualizadas']} actas actualizadas con la firma de {$resultado['admin_usuario']['nombre']} y {$resultado['actas_intactas']} conservadas intactas.",
+                'data' => $resultado
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
 }
+

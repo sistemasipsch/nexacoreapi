@@ -8,6 +8,7 @@ Route::middleware('auth:api')->prefix('gestion-sistemas')->group(function () {
     // Actas de Entrega
     Route::get('/actas-entrega', [ActaEntregaController::class, 'index']);
     Route::post('/actas-entrega', [ActaEntregaController::class, 'store']);
+    Route::post('/actas-entrega/sincronizar-firmas-admin', [ActaEntregaController::class, 'sincronizarFirmasAdmin']);
     Route::get('/actas-entrega/{id}', [ActaEntregaController::class, 'show']);
     Route::get('/actas-entrega/{id}/exportar-excel', [ActaEntregaController::class, 'exportExcel']);
     Route::get('/actas-entrega/{id}/exportar-pdf', [ActaEntregaController::class, 'exportPdf']);
