@@ -23,11 +23,16 @@ class CrearPedidoUseCase
 
         try {
             $tipoSolicitud = \App\Models\CpTipoSolicitud::find($data['tipo_solicitud']);
-            if ($tipoSolicitud && strtolower($tipoSolicitud->nombre) === 'prioritario') {
+            $esPrioritario = $tipoSolicitud && strtolower($tipoSolicitud->nombre) === 'prioritario';
+
+            if ($esPrioritario) {
                 $permissionService = app(PermissionService::class);
                 if (!$permissionService->check($user, 'cp_pedido.realizar_pedido_prioritario')) {
                     throw new Exception('No tienes permisos para realizar un pedido prioritario.');
                 }
+            } else {
+                // Validación de horario delegada al servicio de dominio
+                app(\App\Modules\GestionCompras\Domain\Services\ValidarHorarioPedidoService::class)->validar();
             }
 
             $path = $this->handleSignature($firmaFile, $useStoredSignature, $user, 'elaboracion');

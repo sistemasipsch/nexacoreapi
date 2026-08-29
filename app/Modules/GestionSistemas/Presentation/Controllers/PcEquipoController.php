@@ -17,6 +17,10 @@ use App\Modules\GestionSistemas\Application\UseCases\EquiposComputo\EliminarPcEq
 use App\Modules\GestionSistemas\Application\UseCases\EquiposComputo\ObtenerPcEquipoUseCase;
 use App\Modules\GestionSistemas\Application\UseCases\EquiposComputo\BuscarPcEquiposUseCase;
 
+use App\Modules\GestionSistemas\Application\UseCases\EquiposComputo\ObtenerListadoEquiposDTOUseCase;
+use App\Modules\GestionSistemas\Application\UseCases\EquiposComputo\ExportarListadoEquiposComputoExcelUseCase;
+use App\Modules\GestionSistemas\Application\UseCases\EquiposComputo\ExportarListadoEquiposComputoPdfUseCase;
+
 class PcEquipoController extends Controller
 {
     private PcEquipoRepository $repository;
@@ -347,5 +351,57 @@ class PcEquipoController extends Controller
         $equipos = $useCase->execute($search);
         
         return ApiResponse::success($equipos, 'Resultados de búsqueda');
+    }
+
+    #[OA\Get(
+        path: '/api/gestion-sistemas/pc-equipos/exportar/excel',
+        tags: ['PcEquipos (DDD)'],
+        summary: 'Exportar listado de equipos a Excel',
+        security: [['bearerAuth' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Archivo Excel generado')
+        ]
+    )]
+    public function exportExcel()
+    {
+        try {
+            $obtenerDatos = new ObtenerListadoEquiposDTOUseCase();
+            $useCase = new ExportarListadoEquiposComputoExcelUseCase($obtenerDatos);
+            $fileName = $useCase->execute();
+            $url = asset('storage/exports/' . $fileName);
+            
+            return ApiResponse::success([
+                'file_url' => $url,
+                'file_name' => $fileName
+            ], 'Archivo Excel generado con éxito.');
+        } catch (\Exception $e) {
+            return ApiResponse::error('Error al exportar a Excel: ' . $e->getMessage(), 500);
+        }
+    }
+
+    #[OA\Get(
+        path: '/api/gestion-sistemas/pc-equipos/exportar/pdf',
+        tags: ['PcEquipos (DDD)'],
+        summary: 'Exportar listado de equipos a PDF',
+        security: [['bearerAuth' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Archivo PDF generado')
+        ]
+    )]
+    public function exportPdf(\App\Modules\Shared\Domain\Contracts\ExcelToPdfConverterInterface $pdfConverter)
+    {
+        try {
+            $obtenerDatos = new ObtenerListadoEquiposDTOUseCase();
+            $useCase = new ExportarListadoEquiposComputoPdfUseCase($pdfConverter, $obtenerDatos);
+            $fileName = $useCase->execute();
+            $url = asset('storage/exports/' . $fileName);
+            
+            return ApiResponse::success([
+                'file_url' => $url,
+                'file_name' => $fileName
+            ], 'Archivo PDF generado con éxito.');
+        } catch (\Exception $e) {
+            return ApiResponse::error('Error al exportar a PDF: ' . $e->getMessage(), 500);
+        }
     }
 }

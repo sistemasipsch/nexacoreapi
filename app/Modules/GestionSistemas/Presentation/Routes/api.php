@@ -26,6 +26,8 @@ Route::middleware('auth:api')->prefix('gestion-sistemas')->group(function () {
     // PcEquipos
     Route::post('/pc-equipos/auto-recuperar-imagenes', [\App\Modules\GestionSistemas\Presentation\Controllers\PcEquipoController::class, 'autoRecuperarImagenes']);
     Route::get('/pc-equipos/buscar', [\App\Modules\GestionSistemas\Presentation\Controllers\PcEquipoController::class, 'buscar']);
+    Route::get('/pc-equipos/exportar/excel', [\App\Modules\GestionSistemas\Presentation\Controllers\PcEquipoController::class, 'exportExcel']);
+    Route::get('/pc-equipos/exportar/pdf', [\App\Modules\GestionSistemas\Presentation\Controllers\PcEquipoController::class, 'exportPdf']);
     Route::match(['put', 'post'], '/pc-equipos/{id}', [\App\Modules\GestionSistemas\Presentation\Controllers\PcEquipoController::class, 'update']);
     Route::apiResource('/pc-equipos', \App\Modules\GestionSistemas\Presentation\Controllers\PcEquipoController::class);
     Route::get('/pc-equipos/{id}/hoja-vida', [\App\Modules\GestionSistemas\Presentation\Controllers\PcEquipoHojaVidaController::class, 'show']);
@@ -42,6 +44,8 @@ Route::middleware('auth:api')->prefix('gestion-sistemas')->group(function () {
 
     // Mantenimientos
     Route::get('/pc-mantenimientos/cronograma', [\App\Modules\GestionSistemas\Presentation\Controllers\PcMantenimientoController::class, 'cronograma']);
+    Route::get('/pc-mantenimientos/cronograma/exportar/excel', [\App\Modules\GestionSistemas\Presentation\Controllers\PcMantenimientoController::class, 'exportarCronogramaExcel']);
+    Route::get('/pc-mantenimientos/cronograma/exportar/pdf', [\App\Modules\GestionSistemas\Presentation\Controllers\PcMantenimientoController::class, 'exportarCronogramaPdf']);
     Route::get('/pc-mantenimientos', [\App\Modules\GestionSistemas\Presentation\Controllers\PcMantenimientoController::class, 'index']);
     Route::get('/pc-mantenimientos/equipo/{equipo_id}', [\App\Modules\GestionSistemas\Presentation\Controllers\PcMantenimientoController::class, 'showByEquipo']);
     Route::post('/pc-mantenimientos', [\App\Modules\GestionSistemas\Presentation\Controllers\PcMantenimientoController::class, 'store']);

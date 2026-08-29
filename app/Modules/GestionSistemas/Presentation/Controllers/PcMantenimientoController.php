@@ -16,6 +16,9 @@ use App\Modules\GestionSistemas\Application\UseCases\MantenimientoEquipos\Elimin
 use App\Modules\GestionSistemas\Application\UseCases\MantenimientoEquipos\ObtenerMantenimientoEquipoUseCase;
 use App\Modules\GestionSistemas\Application\UseCases\MantenimientoEquipos\ExportarMantenimientoEquipoExcelUseCase;
 use App\Modules\GestionSistemas\Application\UseCases\MantenimientoEquipos\ExportarMantenimientoEquipoPdfUseCase;
+use App\Modules\GestionSistemas\Application\UseCases\MantenimientoEquipos\ObtenerCronogramaExportacionDTOUseCase;
+use App\Modules\GestionSistemas\Application\UseCases\MantenimientoEquipos\ExportarCronogramaMantenimientoEquiposExcelUseCase;
+use App\Modules\GestionSistemas\Application\UseCases\MantenimientoEquipos\ExportarCronogramaMantenimientoEquiposPdfUseCase;
 use App\Modules\Shared\Domain\Contracts\ExcelToPdfConverterInterface;
 
 class PcMantenimientoController extends Controller
@@ -61,6 +64,60 @@ class PcMantenimientoController extends Controller
         $useCase = new \App\Modules\GestionSistemas\Application\UseCases\MantenimientoEquipos\ObtenerCronogramaMantenimientosUseCase();
         $cronograma = $useCase->execute();
         return ApiResponse::success($cronograma, 'Cronograma de mantenimientos obtenido exitosamente');
+    }
+
+    #[OA\Get(
+        path: '/api/gestion-sistemas/pc-mantenimientos/cronograma/exportar/excel',
+        tags: ['PcMantenimientos (DDD)'],
+        summary: 'Exportar cronograma de mantenimientos a Excel',
+        security: [['bearerAuth' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Archivo Excel generado')
+        ]
+    )]
+    public function exportarCronogramaExcel()
+    {
+        $this->permissionService->authorize("pc_mantenimiento.crear");
+        try {
+            $obtenerDatos = new ObtenerCronogramaExportacionDTOUseCase();
+            $useCase = new ExportarCronogramaMantenimientoEquiposExcelUseCase($obtenerDatos);
+            $fileName = $useCase->execute();
+            $url = asset('storage/exports/' . $fileName);
+            
+            return ApiResponse::success([
+                'file_url' => $url,
+                'file_name' => $fileName
+            ], 'Archivo Excel generado con éxito.');
+        } catch (\Exception $e) {
+            return ApiResponse::error('Error al exportar cronograma a Excel: ' . $e->getMessage(), 500);
+        }
+    }
+
+    #[OA\Get(
+        path: '/api/gestion-sistemas/pc-mantenimientos/cronograma/exportar/pdf',
+        tags: ['PcMantenimientos (DDD)'],
+        summary: 'Exportar cronograma de mantenimientos a PDF',
+        security: [['bearerAuth' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Archivo PDF generado')
+        ]
+    )]
+    public function exportarCronogramaPdf(ExcelToPdfConverterInterface $pdfConverter)
+    {
+        $this->permissionService->authorize("pc_mantenimiento.crear");
+        try {
+            $obtenerDatos = new ObtenerCronogramaExportacionDTOUseCase();
+            $useCase = new ExportarCronogramaMantenimientoEquiposPdfUseCase($pdfConverter, $obtenerDatos);
+            $fileName = $useCase->execute();
+            $url = asset('storage/exports/' . $fileName);
+            
+            return ApiResponse::success([
+                'file_url' => $url,
+                'file_name' => $fileName
+            ], 'Archivo PDF generado con éxito.');
+        } catch (\Exception $e) {
+            return ApiResponse::error('Error al exportar cronograma a PDF: ' . $e->getMessage(), 500);
+        }
     }
 
     #[OA\Get(
