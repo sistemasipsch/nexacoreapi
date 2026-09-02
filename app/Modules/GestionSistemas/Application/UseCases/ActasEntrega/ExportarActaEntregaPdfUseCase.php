@@ -128,9 +128,21 @@ class ExportarActaEntregaPdfUseCase
             $sheet->setCellValue('Z' . $currentRow, $item['serial']);
             $sheet->setCellValue('AJ' . $currentRow, $item['devuelto']);
 
-            // Insertar firmas en cada fila correspondiente
+            // Insertar firmas centradas en cada fila correspondiente
             $this->insertarFirma($sheet, $firmaEntrega, 'AD' . $currentRow, $adminFallback);
             $this->insertarFirma($sheet, $firmaRecibe, 'AG' . $currentRow, $funcionarioFallback);
+
+            // Ajustar estilos y ajuste de texto para evitar cortes
+            $r2 = $currentRow + 1;
+            $sheet->getStyle("B{$currentRow}:E{$r2}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("F{$currentRow}:N{$r2}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT)->setWrapText(true);
+            $sheet->getStyle("O{$currentRow}:Q{$r2}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("R{$currentRow}:U{$r2}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)->setWrapText(true);
+            $sheet->getStyle("V{$currentRow}:Y{$r2}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)->setWrapText(true);
+            $sheet->getStyle("Z{$currentRow}:AC{$r2}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)->setWrapText(true);
+            $sheet->getStyle("AJ{$currentRow}:AK{$r2}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)->setWrapText(true);
+
+            $sheet->getStyle("B{$currentRow}:AK{$r2}")->getFont()->setSize(8.5);
 
             $currentRow += 2; // Avanzar al siguiente slot de 2 filas
         }
@@ -151,6 +163,24 @@ class ExportarActaEntregaPdfUseCase
             $obsTexto .= implode(' | ', $obsList);
         }
         $sheet->setCellValue('B' . $obsRow, $obsTexto);
+        $sheet->getStyle('B' . $obsRow)->getAlignment()->setWrapText(true)->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getStyle('B' . $obsRow)->getFont()->setSize(8);
+
+        // Estilo cabecera funcionario
+        $sheet->getStyle('T7:AK11')->getFont()->setSize(8.5);
+        $sheet->getStyle('B7:S10')->getFont()->setSize(8.5);
+
+        // Configuración de página y márgenes para PDF limpio
+        $sheet->getPageMargins()->setTop(0.3);
+        $sheet->getPageMargins()->setBottom(0.3);
+        $sheet->getPageMargins()->setLeft(0.3);
+        $sheet->getPageMargins()->setRight(0.3);
+
+        $sheet->getPageSetup()->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_LANDSCAPE);
+        $sheet->getPageSetup()->setPaperSize(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::PAPERSIZE_LETTER);
+        $sheet->getPageSetup()->setFitToPage(true);
+        $sheet->getPageSetup()->setFitToWidth(1);
+        $sheet->getPageSetup()->setFitToHeight($totalItems > 10 ? 0 : 1);
 
         // Remover otras hojas para evitar que LibreOffice genere páginas extra en el PDF
         while ($spreadsheet->getSheetCount() > 1) {
@@ -224,49 +254,63 @@ class ExportarActaEntregaPdfUseCase
 
     private function insertarFirma($sheet, $path, $cell, $fallbackPath = null)
     {
-        $cleanPath = $path ? ltrim(str_replace(['public/', 'storage/', 'api/'], '', $path), '/') : null;
-        if ($cleanPath) {
-            $realPath = null;
-            if (Storage::disk('public')->exists($cleanPath)) {
-                $realPath = storage_path('app/public/' . $cleanPath);
-            } elseif (file_exists(public_path('storage/' . $cleanPath))) {
-                $realPath = public_path('storage/' . $cleanPath);
-            } elseif (file_exists(storage_path('app/public/' . $cleanPath))) {
-                $realPath = storage_path('app/public/' . $cleanPath);
-            }
+        $realPath = $this->resolveImagePath($path) ?? $this->resolveImagePath($fallbackPath);
 
-            if ($realPath && file_exists($realPath)) {
-                $drawing = new Drawing();
-                $drawing->setName('Firma');
-                $drawing->setDescription('Firma');
-                $drawing->setPath($realPath);
-                $drawing->setCoordinates($cell);
-                $drawing->setHeight(25);
-                $drawing->setWorksheet($sheet);
-                return;
-            }
-        }
-
-        if ($fallbackPath) {
-            $cleanFallback = ltrim(str_replace(['public/', 'storage/', 'api/'], '', $fallbackPath), '/');
-            $realFallbackPath = null;
-            if (Storage::disk('public')->exists($cleanFallback)) {
-                $realFallbackPath = storage_path('app/public/' . $cleanFallback);
-            } elseif (file_exists(public_path('storage/' . $cleanFallback))) {
-                $realFallbackPath = public_path('storage/' . $cleanFallback);
-            } elseif (file_exists(storage_path('app/public/' . $cleanFallback))) {
-                $realFallbackPath = storage_path('app/public/' . $cleanFallback);
-            }
-
-            if ($realFallbackPath && file_exists($realFallbackPath)) {
-                $drawing = new Drawing();
-                $drawing->setName('Firma');
-                $drawing->setDescription('Firma');
-                $drawing->setPath($realFallbackPath);
-                $drawing->setCoordinates($cell);
-                $drawing->setHeight(25);
-                $drawing->setWorksheet($sheet);
-            }
+        if ($realPath && file_exists($realPath)) {
+            $drawing = new Drawing();
+            $drawing->setName('Firma');
+            $drawing->setDescription('Firma');
+            $drawing->setPath($realPath);
+            $drawing->setCoordinates($cell);
+            $drawing->setHeight(25);
+            $drawing->setOffsetX(15);
+            $drawing->setOffsetY(4);
+            $drawing->setWorksheet($sheet);
         }
     }
+
+    private function resolveImagePath(?string $path): ?string
+    {
+        if (!$path) {
+            return null;
+        }
+
+        // Base64 Data URI
+        if (str_starts_with($path, 'data:image')) {
+            try {
+                if (preg_match('/^data:image\/(\w+);base64,/', $path, $type)) {
+                    $data = substr($path, strpos($path, ',') + 1);
+                    $decoded = base64_decode($data);
+                    if ($decoded !== false) {
+                        $tempPath = tempnam(sys_get_temp_dir(), 'sig_') . '.' . strtolower($type[1]);
+                        file_put_contents($tempPath, $decoded);
+                        return $tempPath;
+                    }
+                }
+            } catch (\Throwable $e) {
+                // Ignore base64 error
+            }
+            return null;
+        }
+
+        // Full URL or relative path
+        $cleanPath = $path;
+        if (preg_match('#/storage/(.+)#', $cleanPath, $matches)) {
+            $cleanPath = $matches[1];
+        }
+        $cleanPath = ltrim(str_replace(['public/', 'storage/', 'api/'], '', $cleanPath), '/');
+
+        if (Storage::disk('public')->exists($cleanPath)) {
+            return storage_path('app/public/' . $cleanPath);
+        } elseif (file_exists(public_path('storage/' . $cleanPath))) {
+            return public_path('storage/' . $cleanPath);
+        } elseif (file_exists(storage_path('app/public/' . $cleanPath))) {
+            return storage_path('app/public/' . $cleanPath);
+        } elseif (file_exists(storage_path('app/' . $cleanPath))) {
+            return storage_path('app/' . $cleanPath);
+        }
+
+        return null;
+    }
 }
+

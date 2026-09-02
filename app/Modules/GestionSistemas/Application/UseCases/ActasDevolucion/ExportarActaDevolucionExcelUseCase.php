@@ -133,9 +133,21 @@ class ExportarActaDevolucionExcelUseCase
             $sheet->setCellValue('Z' . $currentRow, $item['serial']);
             $sheet->setCellValue('AJ' . $currentRow, $item['estado']);
 
-            // Insertar firmas en cada fila correspondiente
+            // Insertar firmas centradas en cada fila correspondiente
             $this->insertarFirma($sheet, $firmaEntrega, 'AD' . $currentRow, $funcionarioFallback);
             $this->insertarFirma($sheet, $firmaRecibe, 'AG' . $currentRow, $adminFallback);
+
+            // Ajustar estilos y ajuste de texto para evitar cortes
+            $r2 = $currentRow + 1;
+            $sheet->getStyle("B{$currentRow}:E{$r2}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("F{$currentRow}:N{$r2}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT)->setWrapText(true);
+            $sheet->getStyle("O{$currentRow}:Q{$r2}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("R{$currentRow}:U{$r2}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)->setWrapText(true);
+            $sheet->getStyle("V{$currentRow}:Y{$r2}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)->setWrapText(true);
+            $sheet->getStyle("Z{$currentRow}:AC{$r2}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)->setWrapText(true);
+            $sheet->getStyle("AJ{$currentRow}:AL{$r2}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)->setWrapText(true);
+
+            $sheet->getStyle("B{$currentRow}:AL{$r2}")->getFont()->setSize(8.5);
 
             $currentRow += 2; // Avanzar al siguiente slot de 2 filas
         }
@@ -159,6 +171,12 @@ class ExportarActaDevolucionExcelUseCase
             $obsTexto .= implode(' | ', $obsList);
         }
         $sheet->setCellValue('B' . $obsRow, $obsTexto);
+        $sheet->getStyle('B' . $obsRow)->getAlignment()->setWrapText(true)->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        $sheet->getStyle('B' . $obsRow)->getFont()->setSize(8);
+
+        // Estilo cabecera funcionario
+        $sheet->getStyle('V7:AL11')->getFont()->setSize(8.5);
+        $sheet->getStyle('B7:U10')->getFont()->setSize(8.5);
 
         $fileName = 'acta_devolucion_' . $devolucion->id . '_' . time() . '.xlsx';
         $exportDir = storage_path('app/public/exports');
@@ -222,6 +240,8 @@ class ExportarActaDevolucionExcelUseCase
             $drawing->setPath($realPath);
             $drawing->setCoordinates($cell);
             $drawing->setHeight(25);
+            $drawing->setOffsetX(15);
+            $drawing->setOffsetY(4);
             $drawing->setWorksheet($sheet);
         }
     }
