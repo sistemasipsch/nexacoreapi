@@ -39,11 +39,14 @@ class AprobarComprasPedidoUseCase
         ]);
 
         if (isset($data['items_comprados']) && is_array($data['items_comprados'])) {
-            CpItemPedido::whereIn('id', $data['items_comprados'])->update(['comprado' => 1]);
+            CpItemPedido::whereIn('id', $data['items_comprados'])->update([
+                'comprado' => 1,
+                'fecha_entregado' => now(),
+            ]);
         }
 
         $this->sendOrderApprovedNotification($pedido);
 
-        return $pedido->load('items');
+        return $pedido->load(['items.producto', 'solicitante', 'tipoSolicitud', 'sede', 'elaboradoPor', 'procesoCompra', 'responsableAprobacion', 'creador']);
     }
 }

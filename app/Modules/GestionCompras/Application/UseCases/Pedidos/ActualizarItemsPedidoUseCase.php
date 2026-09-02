@@ -25,18 +25,24 @@ class ActualizarItemsPedidoUseCase
         }
 
         foreach ($items as $itemData) {
-            $updateData = ['comprado' => $itemData['comprado']];
-            if (isset($itemData['comprado']) && $itemData['comprado']) {
-                $updateData['fecha_entregado'] = now();
-            } else {
-                $updateData['fecha_entregado'] = null;
-            }
+            $isComprado = !empty($itemData['comprado']) && ($itemData['comprado'] === true || $itemData['comprado'] == 1 || $itemData['comprado'] === 'true' || $itemData['comprado'] === '1');
 
-            CpItemPedido::where('id', $itemData['id'])
+            $currentItem = CpItemPedido::where('id', $itemData['id'])
                 ->where('cp_pedido', $id)
-                ->update($updateData);
+                ->first();
+
+            if ($currentItem) {
+                $updateData = ['comprado' => $isComprado ? 1 : 0];
+                if ($isComprado) {
+                    $updateData['fecha_entregado'] = $currentItem->fecha_entregado ?? now();
+                } else {
+                    $updateData['fecha_entregado'] = null;
+                }
+
+                $currentItem->update($updateData);
+            }
         }
 
-        return $pedido->load('items');
+        return $pedido->load(['items.producto', 'solicitante', 'tipoSolicitud', 'sede', 'elaboradoPor', 'procesoCompra', 'responsableAprobacion', 'creador']);
     }
 }
