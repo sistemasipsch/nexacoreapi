@@ -60,6 +60,11 @@ class CpConsolidadoExport
         $spreadsheet = IOFactory::load($templatePath);
         $sheet = $spreadsheet->getActiveSheet();
 
+        // Asegurar encabezado de la columna ENTREGADO
+        $sheet->setCellValue('L2', 'ENTREGADO');
+        $sheet->duplicateStyle($sheet->getStyle('K2'), 'L2');
+        $sheet->getColumnDimension('L')->setAutoSize(true);
+
         $startRow = 3;
         foreach ($pedidos as $i => $pedido) {
             $row = $startRow + $i;
@@ -76,6 +81,26 @@ class CpConsolidadoExport
                 }
                 return "{$item->nombre} ({$item->cantidad}){$fechaEntregado}";
             })->implode(', ');
+
+            // Obtener fecha final de entrega del pedido
+            $fechasEntregado = $pedido->items
+                ->where('comprado', 1)
+                ->pluck('fecha_entregado')
+                ->filter()
+                ->map(function ($f) {
+                    return \Carbon\Carbon::parse($f, 'UTC')->setTimezone('America/Bogota');
+                });
+
+            $fechaFinalEntregado = '';
+            if ($fechasEntregado->isNotEmpty()) {
+                $fechaFinalEntregado = $fechasEntregado->max()->format('d/m/Y g:i A');
+            } elseif ($pedido->items->where('comprado', 1)->count() > 0) {
+                if ($pedido->fecha_compra) {
+                    $fechaFinalEntregado = \Carbon\Carbon::parse($pedido->fecha_compra, 'UTC')->setTimezone('America/Bogota')->format('d/m/Y g:i A');
+                } elseif ($pedido->fecha_solicitud) {
+                    $fechaFinalEntregado = \Carbon\Carbon::parse($pedido->fecha_solicitud, 'UTC')->setTimezone('America/Bogota')->format('d/m/Y g:i A');
+                }
+            }
 
             $sheet->setCellValue("A{$row}", $pedido->fecha_solicitud);
             $sheet->setCellValue("B{$row}", $pedido->solicitante?->nombre);
@@ -100,6 +125,7 @@ class CpConsolidadoExport
             $sheet->setCellValue("I{$row}", $pedido->fecha_compra); // FECHA_RESPUESTA
             $sheet->setCellValue("J{$row}", $pedido->fecha_gerencia); // FECHA_RESPUESTA_SOLICITANTE
             $sheet->setCellValue("K{$row}", $pedido->observaciones_pedidos);
+            $sheet->setCellValue("L{$row}", $fechaFinalEntregado);
         }
 
         return new StreamedResponse(function () use ($spreadsheet) {
