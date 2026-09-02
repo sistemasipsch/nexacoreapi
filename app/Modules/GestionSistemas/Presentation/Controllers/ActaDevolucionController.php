@@ -4,7 +4,9 @@ namespace App\Modules\GestionSistemas\Presentation\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\GestionSistemas\Application\DTOs\CrearActaDevolucionDTO;
+use App\Modules\GestionSistemas\Application\DTOs\ActualizarActaDevolucionDTO;
 use App\Modules\GestionSistemas\Application\UseCases\ActasDevolucion\CrearActaDevolucionUseCase;
+use App\Modules\GestionSistemas\Application\UseCases\ActasDevolucion\ActualizarActaDevolucionUseCase;
 use App\Modules\GestionSistemas\Application\UseCases\ActasDevolucion\ObtenerActaDevolucionUseCase;
 use App\Modules\GestionSistemas\Application\UseCases\ActasDevolucion\EliminarActaDevolucionUseCase;
 use App\Modules\GestionSistemas\Infrastructure\Repositories\ActaDevolucionRepository;
@@ -20,14 +22,15 @@ use OpenApi\Attributes as OA;
 class ActaDevolucionController extends Controller
 {
     private CrearActaDevolucionUseCase $crearUseCase;
+    private ActualizarActaDevolucionUseCase $actualizarUseCase;
     private ObtenerActaDevolucionUseCase $obtenerUseCase;
     private EliminarActaDevolucionUseCase $eliminarUseCase;
 
     public function __construct()
     {
-        // En una aplicación real, usar Dependency Injection
         $repository = new ActaDevolucionRepository();
         $this->crearUseCase = new CrearActaDevolucionUseCase($repository);
+        $this->actualizarUseCase = new ActualizarActaDevolucionUseCase($repository);
         $this->obtenerUseCase = new ObtenerActaDevolucionUseCase($repository);
         $this->eliminarUseCase = new EliminarActaDevolucionUseCase($repository);
     }
@@ -192,6 +195,78 @@ class ActaDevolucionController extends Controller
                 ] : null
             ]
         ]);
+    }
+
+    #[OA\Post(
+        path: '/api/gestion-sistemas/actas-devolucion/{id}',
+        tags: ['Actas Devolucion'],
+        summary: 'Actualizar acta de devolución',
+        description: 'Actualiza una acta de devolución existente.',
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\MediaType(
+                mediaType: 'multipart/form-data',
+                schema: new OA\Schema(
+                    properties: [
+                        new OA\Property(property: '_method', type: 'string', example: 'PUT'),
+                        new OA\Property(property: 'entrega_id', type: 'integer', description: 'ID del acta de entrega'),
+                        new OA\Property(property: 'fecha_devolucion', type: 'string', format: 'date', description: 'Fecha de devolución (YYYY-MM-DD)'),
+                        new OA\Property(property: 'firma_entrega', type: 'string', format: 'binary', description: 'Archivo de firma de quien devuelve'),
+                        new OA\Property(property: 'firma_recibe', type: 'string', format: 'binary', description: 'Archivo de firma de sistemas (quien recibe)'),
+                        new OA\Property(property: 'observaciones', type: 'string', description: 'Observaciones sobre el estado del hardware')
+                    ]
+                )
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Acta de devolución actualizada con éxito'),
+            new OA\Response(response: 404, description: 'Acta no encontrada'),
+            new OA\Response(response: 500, description: 'Error interno')
+        ]
+    )]
+    public function update(Request $request, int $id): JsonResponse
+    {
+        $request->validate([
+            'entrega_id' => 'nullable|integer|exists:pc_entregas,id',
+            'fecha_devolucion' => 'nullable|date',
+            'firma_entrega' => 'nullable|file|mimes:jpeg,png,jpg,pdf|max:2048',
+            'firma_recibe' => 'nullable|file|mimes:jpeg,png,jpg,pdf|max:2048',
+            'observaciones' => 'nullable|string',
+        ]);
+
+        $dto = new ActualizarActaDevolucionDTO(
+            $id,
+            $request->input('entrega_id') ? (int) $request->input('entrega_id') : null,
+            $request->input('fecha_devolucion'),
+            $request->input('observaciones'),
+            $request->file('firma_entrega'),
+            $request->file('firma_recibe')
+        );
+
+        try {
+            $acta = $this->actualizarUseCase->execute($dto);
+            return response()->json([
+                'success' => true,
+                'message' => 'Acta de devolución actualizada con éxito.',
+                'data' => [
+                    'id' => $acta->getId(),
+                    'entrega_id' => $acta->getEntregaId(),
+                    'fecha_devolucion' => $acta->getFechaDevolucion(),
+                    'firma_entrega' => $acta->getFirmaEntrega() ? url('storage/' . ltrim(str_replace(['storage/', 'public/'], '', $acta->getFirmaEntrega()), '/')) : null,
+                    'firma_recibe' => $acta->getFirmaRecibe() ? url('storage/' . ltrim(str_replace(['storage/', 'public/'], '', $acta->getFirmaRecibe()), '/')) : null,
+                    'observaciones' => $acta->getObservaciones()
+                ]
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al actualizar acta: ' . $e->getMessage()
+            ], $e->getMessage() === 'Acta de devolución no encontrada' ? 404 : 500);
+        }
     }
 
     #[OA\Delete(

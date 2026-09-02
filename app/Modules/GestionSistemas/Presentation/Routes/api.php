@@ -21,6 +21,7 @@ Route::middleware('auth:api')->prefix('gestion-sistemas')->group(function () {
     Route::get('/actas-devolucion/{id}', [ActaDevolucionController::class, 'show']);
     Route::get('/actas-devolucion/{id}/exportar-excel', [ActaDevolucionController::class, 'exportExcel']);
     Route::get('/actas-devolucion/{id}/exportar-pdf', [ActaDevolucionController::class, 'exportPdf']);
+    Route::match(['put', 'post'], '/actas-devolucion/{id}', [ActaDevolucionController::class, 'update']);
     Route::delete('/actas-devolucion/{id}', [ActaDevolucionController::class, 'destroy']);
 
     // PcEquipos

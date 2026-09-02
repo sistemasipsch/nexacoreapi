@@ -16,9 +16,9 @@ class ActaDevolucionRepository
             $modelo = new PcDevuelto();
             $modelo->entrega_id = $acta->getEntregaId();
             $modelo->fecha_devolucion = $acta->getFechaDevolucion();
-            $modelo->observaciones = $acta->getObservaciones();
-            $modelo->firma_entrega = $acta->getFirmaEntrega();
-            $modelo->firma_recibe = $acta->getFirmaRecibe();
+            $modelo->observaciones = $acta->getObservaciones() ?? '';
+            $modelo->firma_entrega = $acta->getFirmaEntrega() ?? '';
+            $modelo->firma_recibe = $acta->getFirmaRecibe() ?? '';
             $modelo->save();
 
             // Actualizar la entrega a devuelta
@@ -61,6 +61,51 @@ class ActaDevolucionRepository
         );
     }
 
+    public function update(ActaDevolucion $acta): ?ActaDevolucion
+    {
+        DB::beginTransaction();
+        try {
+            $modelo = PcDevuelto::find($acta->getId());
+            if (!$modelo) {
+                return null;
+            }
+
+            $modelo->entrega_id = $acta->getEntregaId();
+            $modelo->fecha_devolucion = $acta->getFechaDevolucion();
+            $modelo->observaciones = $acta->getObservaciones();
+            
+            if ($acta->getFirmaEntrega() !== null) {
+                $modelo->firma_entrega = $acta->getFirmaEntrega();
+            }
+            if ($acta->getFirmaRecibe() !== null) {
+                $modelo->firma_recibe = $acta->getFirmaRecibe();
+            }
+            
+            $modelo->save();
+
+            // Actualizar la entrega a devuelta
+            $entrega = PcEntrega::find($acta->getEntregaId());
+            if ($entrega) {
+                $entrega->devuelto = $acta->getFechaDevolucion();
+                $entrega->save();
+            }
+
+            DB::commit();
+
+            return new ActaDevolucion(
+                $modelo->entrega_id,
+                $modelo->fecha_devolucion ? $modelo->fecha_devolucion->format('Y-m-d') : date('Y-m-d'),
+                $modelo->observaciones,
+                $modelo->firma_entrega,
+                $modelo->firma_recibe,
+                $modelo->id
+            );
+        } catch (\Exception $e) {
+            DB::rollBack();
+            throw $e;
+        }
+    }
+
     public function delete(int $id): bool
     {
         $modelo = PcDevuelto::find($id);
@@ -78,3 +123,4 @@ class ActaDevolucionRepository
         return $modelo->delete();
     }
 }
+

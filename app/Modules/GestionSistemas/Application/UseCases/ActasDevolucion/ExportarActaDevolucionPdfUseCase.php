@@ -3,10 +3,12 @@
 namespace App\Modules\GestionSistemas\Application\UseCases\ActasDevolucion;
 
 use App\Models\PcDevuelto;
+use App\Models\Usuario;
 use App\Modules\Shared\Domain\Contracts\ExcelToPdfConverterInterface;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Style\Border;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Exception;
@@ -20,7 +22,8 @@ class ExportarActaDevolucionPdfUseCase
     public function execute(int $id): string
     {
         $devolucion = PcDevuelto::with([
-            'entrega.equipo',
+            'entrega.equipo.sede',
+            'entrega.equipo.area',
             'entrega.funcionario.cargo',
             'entrega.perifericos.inventario'
         ])->findOrFail($id);
@@ -36,12 +39,17 @@ class ExportarActaDevolucionPdfUseCase
         $spreadsheet = IOFactory::load($templatePath);
         $sheet = $spreadsheet->getActiveSheet();
 
-        // Datos del funcionario
-        $nombre = optional($entrega->funcionario)->nombre ?? '';
-        $cedula = optional($entrega->funcionario)->cedula ?? '';
-        $cargo = optional(optional($entrega->funcionario)->cargo)->nombre ?? '';
-        $telefono = optional($entrega->funcionario)->telefono ?? '';
-        $proceso = ''; // Proceso - a definir
+        // 1. Datos de la IPS y Datos del Funcionario
+        $sheet->setCellValue('B7', 'NOMBRE: IPS CLINICAL HOUSE');
+        $sheet->setCellValue('B8', 'NIT: 900752620');
+        $sheet->setCellValue('B9', 'DIRECCION: AV 1E #11-152 QUINTA VELEZ');
+        $sheet->setCellValue('B10', 'TELEFONO: 5956636');
+
+        $nombre = optional($entrega?->funcionario)->nombre ?? '';
+        $cedula = optional($entrega?->funcionario)->cedula ?? '';
+        $cargo = optional(optional($entrega?->funcionario)->cargo)->nombre ?? (is_string($entrega?->funcionario?->cargo) ? $entrega->funcionario->cargo : '');
+        $telefono = optional($entrega?->funcionario)->telefono ?? '';
+        $proceso = optional(optional($entrega?->equipo)->area)->nombre ?? '';
 
         $sheet->setCellValue('V7', 'NOMBRE: ' . $nombre);
         $sheet->setCellValue('V8', 'NUMERO DE IDENTIFICACION: ' . $cedula);
@@ -49,44 +57,120 @@ class ExportarActaDevolucionPdfUseCase
         $sheet->setCellValue('V10', 'TELEFONO: ' . $telefono);
         $sheet->setCellValue('V11', 'PROCESO: ' . $proceso);
 
-        $fecha = Carbon::parse($devolucion->fecha_devolucion);
-        $row = 14;
+        // 2. Firmas disponibles con fallback
+        // En devolución: AD es Quien Devuelve (Funcionario), AG es Quien Recibe (Sistemas/Admin)
+        $firmaEntrega = $devolucion->getRawOriginal('firma_entrega') ?? $devolucion->attributes['firma_entrega'] ?? null;
+        $funcionarioFallback = optional($entrega?->funcionario)->getRawOriginal('firma') ?? optional($entrega?->funcionario)->firma ?? null;
 
-        // Fila 14: Equipo Principal
-        if ($entrega && $entrega->equipo) {
-            $sheet->setCellValue('B' . $row, $fecha->format('Y'));
-            $sheet->setCellValue('D' . $row, $fecha->format('m'));
-            $sheet->setCellValue('E' . $row, $fecha->format('d'));
-            $sheet->setCellValue('F' . $row, $entrega->equipo->nombre_equipo ?? 'Equipo PC');
-            $sheet->setCellValue('O' . $row, 1);
-            $sheet->setCellValue('R' . $row, $entrega->equipo->marca ?? '');
-            $sheet->setCellValue('V' . $row, $entrega->equipo->modelo ?? '');
-            $sheet->setCellValue('Z' . $row, $entrega->equipo->serial ?? '');
-            $sheet->setCellValue('AJ' . $row, $fecha->format('Y-m-d'));
-            
-            // Insertar Firmas si existen
-            
-            $row++;
+        $firmaRecibe = $devolucion->getRawOriginal('firma_recibe') ?? $devolucion->attributes['firma_recibe'] ?? null;
+        $adminFallback = null;
+        $admin = Usuario::whereNotNull('firma_digital')->where('firma_digital', '!=', '')->first();
+        if ($admin) {
+            $adminFallback = $admin->getRawOriginal('firma_digital');
         }
 
-        // Perifericos
-        if ($entrega && $entrega->perifericos) {
-            foreach ($entrega->perifericos as $periferico) {
-                $sheet->setCellValue('B' . $row, $fecha->format('Y'));
-                $sheet->setCellValue('D' . $row, $fecha->format('m'));
-                $sheet->setCellValue('E' . $row, $fecha->format('d'));
-                $sheet->setCellValue('F' . $row, optional($periferico->inventario)->nombre ?? 'Periférico');
-                $sheet->setCellValue('O' . $row, $periferico->cantidad ?? 1);
-                $sheet->setCellValue('R' . $row, optional($periferico->inventario)->marca ?? '');
-                $sheet->setCellValue('V' . $row, optional($periferico->inventario)->modelo ?? '');
-                $sheet->setCellValue('Z' . $row, optional($periferico->inventario)->serial ?? '');
-                $sheet->setCellValue('AJ' . $row, $fecha->format('Y-m-d'));
-                $this->insertarFirma($sheet, $devolucion->firma_entrega, 'AD' . $row);
-                $this->insertarFirma($sheet, $devolucion->firma_recibe, 'AG' . $row);
+        // 3. Preparar lista de items (Equipo Principal + Todos los Periféricos y Accesorios)
+        $items = [];
+        if ($entrega && $entrega->equipo) {
+            $items[] = [
+                'es_equipo' => true,
+                'nombre' => $entrega->equipo->nombre_equipo ?? 'Equipo PC',
+                'cantidad' => 1,
+                'marca' => $entrega->equipo->marca ?? '',
+                'modelo' => $entrega->equipo->modelo ?? '',
+                'serial' => $entrega->equipo->serial ?? ($entrega->equipo->numero_inventario ? "INV: {$entrega->equipo->numero_inventario}" : ''),
+                'estado' => $entrega->equipo->estado ?? 'DEVUELTO'
+            ];
+        }
 
-                $row++;
+        if ($entrega && $entrega->perifericos && count($entrega->perifericos) > 0) {
+            foreach ($entrega->perifericos as $periferico) {
+                $nombrePerif = optional($periferico->inventario)->nombre ?? "Periférico #{$periferico->inventario_id}";
+                $marcaPerif = optional($periferico->inventario)->marca ?? '';
+                $modeloPerif = optional($periferico->inventario)->modelo ?? '';
+                $serialPerif = optional($periferico->inventario)->serial ?? (optional($periferico->inventario)->codigo ? "COD: {$periferico->inventario->codigo}" : '');
+                $estadoPerif = !empty($periferico->observaciones) ? $periferico->observaciones : 'DEVUELTO';
+
+                $items[] = [
+                    'es_equipo' => false,
+                    'nombre' => $nombrePerif,
+                    'cantidad' => $periferico->cantidad ?? 1,
+                    'marca' => $marcaPerif,
+                    'modelo' => $modeloPerif,
+                    'serial' => $serialPerif,
+                    'estado' => $estadoPerif
+                ];
             }
         }
+
+        $fecha = Carbon::parse($devolucion->fecha_devolucion ?? now());
+        $startRow = 14;
+        $maxDefaultSlots = 11; // Filas 14 a 35 (11 slots de 2 filas cada uno)
+        $totalItems = count($items);
+        $insertedRows = 0;
+
+        // Si hay más de 11 items, insertar filas dinámicamente antes de row 36
+        if ($totalItems > $maxDefaultSlots) {
+            $extraSlots = $totalItems - $maxDefaultSlots;
+            $rowsToInsert = $extraSlots * 2;
+            $insertAtRow = 36;
+            $sheet->insertNewRowBefore($insertAtRow, $rowsToInsert);
+            $insertedRows = $rowsToInsert;
+
+            // Formatear y combinar celdas para los slots adicionales
+            for ($s = 0; $s < $extraSlots; $s++) {
+                $r1 = 36 + ($s * 2);
+                $r2 = $r1 + 1;
+                $this->mergeAndStyleRowSlot($sheet, $r1, $r2);
+            }
+        }
+
+        // 4. Escribir cada item avanzando de 2 en 2 filas
+        $currentRow = $startRow;
+        foreach ($items as $item) {
+            $sheet->setCellValue('B' . $currentRow, $fecha->format('Y'));
+            $sheet->setCellValue('D' . $currentRow, $fecha->format('m'));
+            $sheet->setCellValue('E' . $currentRow, $fecha->format('d'));
+            $sheet->setCellValue('F' . $currentRow, $item['nombre']);
+            $sheet->setCellValue('O' . $currentRow, $item['cantidad']);
+            $sheet->setCellValue('R' . $currentRow, $item['marca']);
+            $sheet->setCellValue('V' . $currentRow, $item['modelo']);
+            $sheet->setCellValue('Z' . $currentRow, $item['serial']);
+            $sheet->setCellValue('AJ' . $currentRow, $item['estado']);
+
+            // Insertar firmas en cada fila correspondiente
+            $this->insertarFirma($sheet, $firmaEntrega, 'AD' . $currentRow, $funcionarioFallback);
+            $this->insertarFirma($sheet, $firmaRecibe, 'AG' . $currentRow, $adminFallback);
+
+            $currentRow += 2; // Avanzar al siguiente slot de 2 filas
+        }
+
+        // 5. Escribir observaciones si existen
+        $obsRow = 36 + $insertedRows;
+        $obsList = [];
+        if (!empty($devolucion->observaciones)) {
+            $obsList[] = $devolucion->observaciones;
+        }
+        if ($entrega && $entrega->perifericos) {
+            foreach ($entrega->perifericos as $p) {
+                if (!empty($p->observaciones)) {
+                    $nombreItem = optional($p->inventario)->nombre ?? "Periférico #{$p->inventario_id}";
+                    $obsList[] = "{$nombreItem}: {$p->observaciones}";
+                }
+            }
+        }
+        $obsTexto = 'OBSERVACIONES: ';
+        if (!empty($obsList)) {
+            $obsTexto .= implode(' | ', $obsList);
+        }
+        $sheet->setCellValue('B' . $obsRow, $obsTexto);
+
+        // Configuración de página para PDF
+        $sheet->getPageSetup()->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_LANDSCAPE);
+        $sheet->getPageSetup()->setPaperSize(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::PAPERSIZE_LETTER);
+        $sheet->getPageSetup()->setFitToPage(true);
+        $sheet->getPageSetup()->setFitToWidth(1);
+        $sheet->getPageSetup()->setFitToHeight(0);
 
         // Remover otras hojas para evitar que LibreOffice genere páginas extra en el PDF
         while ($spreadsheet->getSheetCount() > 1) {
@@ -95,7 +179,6 @@ class ExportarActaDevolucionPdfUseCase
             $spreadsheet->removeSheetByIndex($indexToRemove);
         }
 
-        $funcionarioName = $this->sanitize(optional($entrega->funcionario)->nombre ?? 'SIN_NOMBRE');
         $filename = 'acta_devolucion_' . $devolucion->id . '_' . time() . '.pdf';
 
         $tempExcelPath = tempnam(sys_get_temp_dir(), 'acta_excel_') . '.xlsx';
@@ -122,23 +205,101 @@ class ExportarActaDevolucionPdfUseCase
         }
     }
 
-    private function insertarFirma($sheet, $path, $cell)
+    private function mergeAndStyleRowSlot($sheet, int $r1, int $r2): void
     {
-        $cleanPath = $path ? ltrim(str_replace(['storage/', 'public/'], '', $path), '/') : null;
-        if ($cleanPath && Storage::disk('public')->exists($cleanPath)) {
+        $merges = [
+            "B{$r1}:C{$r2}",
+            "D{$r1}:D{$r2}",
+            "E{$r1}:E{$r2}",
+            "F{$r1}:N{$r2}",
+            "O{$r1}:Q{$r2}",
+            "R{$r1}:U{$r2}",
+            "V{$r1}:Y{$r2}",
+            "Z{$r1}:AC{$r2}",
+            "AD{$r1}:AF{$r2}",
+            "AG{$r1}:AI{$r2}",
+            "AJ{$r1}:AL{$r2}",
+        ];
+
+        foreach ($merges as $m) {
+            $sheet->mergeCells($m);
+        }
+
+        $styleArray = [
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['argb' => 'FF000000'],
+                ],
+            ],
+            'alignment' => [
+                'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+            ]
+        ];
+
+        $sheet->getStyle("B{$r1}:AL{$r2}")->applyFromArray($styleArray);
+        $sheet->getRowDimension($r1)->setRowHeight(15);
+        $sheet->getRowDimension($r2)->setRowHeight(15);
+    }
+
+    private function insertarFirma($sheet, $path, $cell, $fallbackPath = null)
+    {
+        $realPath = $this->resolveImagePath($path) ?? $this->resolveImagePath($fallbackPath);
+
+        if ($realPath && file_exists($realPath)) {
             $drawing = new Drawing();
             $drawing->setName('Firma');
             $drawing->setDescription('Firma');
-            $drawing->setPath(storage_path('app/public/' . $cleanPath));
+            $drawing->setPath($realPath);
             $drawing->setCoordinates($cell);
-            $drawing->setHeight(30); // Ajustar según el tamaño de la celda
+            $drawing->setHeight(25);
             $drawing->setWorksheet($sheet);
         }
     }
 
-    private function sanitize(string $string): string
+    private function resolveImagePath(?string $path): ?string
     {
-        $string = preg_replace('/[^A-Za-z0-9\-\s]/', '', $string);
-        return trim(preg_replace('/\s+/', '_', $string));
+        if (!$path) {
+            return null;
+        }
+
+        // Base64 Data URI
+        if (str_starts_with($path, 'data:image')) {
+            try {
+                if (preg_match('/^data:image\/(\w+);base64,/', $path, $type)) {
+                    $data = substr($path, strpos($path, ',') + 1);
+                    $decoded = base64_decode($data);
+                    if ($decoded !== false) {
+                        $tempPath = tempnam(sys_get_temp_dir(), 'sig_') . '.' . strtolower($type[1]);
+                        file_put_contents($tempPath, $decoded);
+                        return $tempPath;
+                    }
+                }
+            } catch (\Throwable $e) {
+                // Ignore base64 error
+            }
+            return null;
+        }
+
+        // Full URL or relative path
+        $cleanPath = $path;
+        if (preg_match('#/storage/(.+)#', $cleanPath, $matches)) {
+            $cleanPath = $matches[1];
+        }
+        $cleanPath = ltrim(str_replace(['public/', 'storage/', 'api/'], '', $cleanPath), '/');
+
+        if (Storage::disk('public')->exists($cleanPath)) {
+            return storage_path('app/public/' . $cleanPath);
+        } elseif (file_exists(public_path('storage/' . $cleanPath))) {
+            return public_path('storage/' . $cleanPath);
+        } elseif (file_exists(storage_path('app/public/' . $cleanPath))) {
+            return storage_path('app/public/' . $cleanPath);
+        } elseif (file_exists(storage_path('app/' . $cleanPath))) {
+            return storage_path('app/' . $cleanPath);
+        }
+
+        return null;
     }
 }
+
+
