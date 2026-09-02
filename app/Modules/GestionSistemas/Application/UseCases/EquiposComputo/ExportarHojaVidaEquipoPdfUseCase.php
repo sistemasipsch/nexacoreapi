@@ -50,15 +50,48 @@ class ExportarHojaVidaEquipoPdfUseCase
         $sheet->setCellValue('B12', $sheet->getCell('B12')->getValue() . ' ' . ($equipo->garantia_meses ? $equipo->garantia_meses . ' meses' : ''));
         $sheet->setCellValue('H12', $sheet->getCell('H12')->getValue() . ' ' . optional($equipo->responsable)->nombre);
 
-        // 2. Imagen
-        $imagePath = preg_replace('/^storage\//', '', $equipo->imagen_url ?? '');
-        if ($imagePath && Storage::disk('public')->exists($imagePath)) {
+        // 1.1 Ajustar y centrar el Logo de la IPS dentro de B2:D4 (Caja: 188px ancho x 104px alto)
+        foreach ($sheet->getDrawingCollection() as $d) {
+            if ($d->getCoordinates() === 'B2' || str_contains(strtolower($d->getName()), 'imagen 1')) {
+                $d->setWidth(160);
+                $d->setHeight(70);
+                $d->setOffsetX(14);
+                $d->setOffsetY(17);
+            }
+        }
+
+        // 2. Imagen del Equipo (Caja K6:M12 -> 190px ancho x 203px alto)
+        $realImagePath = $this->resolveImagePath($equipo->imagen_url);
+        if ($realImagePath && file_exists($realImagePath)) {
             $drawing = new Drawing();
             $drawing->setName('Imagen Equipo');
             $drawing->setDescription('Imagen Equipo');
-            $drawing->setPath(storage_path('app/public/' . $imagePath));
+            $drawing->setPath($realImagePath);
             $drawing->setCoordinates('K6');
-            $drawing->setHeight(100); 
+
+            // Calcular escalado proporcional máximo que llene el cuadro K6:M12
+            $maxW = 176;
+            $maxH = 190;
+            $boxW = 190;
+            $boxH = 203;
+
+            $size = @getimagesize($realImagePath);
+            if ($size && $size[0] > 0 && $size[1] > 0) {
+                $ratio = min($maxW / $size[0], $maxH / $size[1]);
+                $finalW = (int) round($size[0] * $ratio);
+                $finalH = (int) round($size[1] * $ratio);
+            } else {
+                $finalW = $maxW;
+                $finalH = $maxH;
+            }
+
+            $offsetX = (int) max(0, round(($boxW - $finalW) / 2));
+            $offsetY = (int) max(0, round(($boxH - $finalH) / 2));
+
+            $drawing->setWidth($finalW);
+            $drawing->setHeight($finalH);
+            $drawing->setOffsetX($offsetX);
+            $drawing->setOffsetY($offsetY);
             $drawing->setWorksheet($sheet);
         }
 
@@ -115,6 +148,25 @@ class ExportarHojaVidaEquipoPdfUseCase
         $fechaEntrega = $equipo->fecha_entrega ? $equipo->fecha_entrega->format('d/m/Y') : '';
         $sheet->setCellValue('B28', $sheet->getCell('B28')->getValue() . ' ' . $fechaEntrega);
 
+        // Configuración de página para PDF
+        $sheet->getPageMargins()->setTop(0.3);
+        $sheet->getPageMargins()->setBottom(0.3);
+        $sheet->getPageMargins()->setLeft(0.3);
+        $sheet->getPageMargins()->setRight(0.3);
+
+        $sheet->getPageSetup()->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_PORTRAIT);
+        $sheet->getPageSetup()->setPaperSize(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::PAPERSIZE_LETTER);
+        $sheet->getPageSetup()->setFitToPage(true);
+        $sheet->getPageSetup()->setFitToWidth(1);
+        $sheet->getPageSetup()->setFitToHeight(1);
+
+        // Remover otras hojas
+        while ($spreadsheet->getSheetCount() > 1) {
+            $activeIndex = $spreadsheet->getActiveSheetIndex();
+            $indexToRemove = $activeIndex === 0 ? 1 : 0;
+            $spreadsheet->removeSheetByIndex($indexToRemove);
+        }
+
         // Preparar archivo temporal para enviar a LibreOffice
         $filename = 'hoja_vida_equipo_' . $equipo->id . '_' . time() . '.pdf';
         $tempExcelPath = tempnam(sys_get_temp_dir(), 'hv_excel_') . '.xlsx';
@@ -143,4 +195,48 @@ class ExportarHojaVidaEquipoPdfUseCase
             throw $e;
         }
     }
+
+    private function resolveImagePath(?string $path): ?string
+    {
+        if (!$path) {
+            return null;
+        }
+
+        // Base64 Data URI
+        if (str_starts_with($path, 'data:image')) {
+            try {
+                if (preg_match('/^data:image\/(\w+);base64,/', $path, $type)) {
+                    $data = substr($path, strpos($path, ',') + 1);
+                    $decoded = base64_decode($data);
+                    if ($decoded !== false) {
+                        $tempPath = tempnam(sys_get_temp_dir(), 'equipo_img_') . '.' . strtolower($type[1]);
+                        file_put_contents($tempPath, $decoded);
+                        return $tempPath;
+                    }
+                }
+            } catch (\Throwable $e) {
+                // ignore
+            }
+            return null;
+        }
+
+        $cleanPath = $path;
+        if (preg_match('#/storage/(.+)#', $cleanPath, $matches)) {
+            $cleanPath = $matches[1];
+        }
+        $cleanPath = ltrim(str_replace(['public/', 'storage/', 'api/'], '', $cleanPath), '/');
+
+        if (Storage::disk('public')->exists($cleanPath)) {
+            return storage_path('app/public/' . $cleanPath);
+        } elseif (file_exists(public_path('storage/' . $cleanPath))) {
+            return public_path('storage/' . $cleanPath);
+        } elseif (file_exists(storage_path('app/public/' . $cleanPath))) {
+            return storage_path('app/public/' . $cleanPath);
+        } elseif (file_exists(storage_path('app/' . $cleanPath))) {
+            return storage_path('app/' . $cleanPath);
+        }
+
+        return null;
+    }
 }
+
