@@ -53,20 +53,43 @@ class ExportarCronogramaMantenimientoEquiposPdfUseCase
             $sheet->setCellValue('U' . $row, $dto->fechaUltimoMantenimiento2025IISemestre);
             $sheet->setCellValue('V' . $row, $dto->fechaUltimoMantenimiento2026ISemestre);
             $sheet->setCellValue('W' . $row, $dto->estadoMantenimiento);
+
+            $sheet->getRowDimension($row)->setRowHeight(19.5);
             $row++;
         }
 
         $endRow = $row - 1;
         if ($endRow >= 9) {
-            $sheet->getStyle("A9:V{$endRow}")->applyFromArray([
+            $sheet->getStyle("B9:W{$endRow}")->applyFromArray([
                 'borders' => [
                     'allBorders' => [
                         'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
                         'color' => ['argb' => 'FF000000'],
                     ],
                 ],
+                'alignment' => [
+                    'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                ],
             ]);
+
+            $sheet->getStyle("B9:W{$endRow}")->getFont()->setName('Arial')->setSize(9);
+            $sheet->getStyle("B9:B{$endRow}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("I9:K{$endRow}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("N9:W{$endRow}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
         }
+
+        // Configuración de página para PDF
+        $sheet->getPageMargins()->setTop(0.4);
+        $sheet->getPageMargins()->setBottom(0.4);
+        $sheet->getPageMargins()->setLeft(0.3);
+        $sheet->getPageMargins()->setRight(0.3);
+
+        $sheet->getPageSetup()->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_LANDSCAPE);
+        $sheet->getPageSetup()->setPaperSize(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::PAPERSIZE_LETTER);
+        $sheet->getPageSetup()->setFitToPage(true);
+        $sheet->getPageSetup()->setFitToWidth(1);
+        $sheet->getPageSetup()->setFitToHeight(0); // Permite flujo multi-página vertical
+        $sheet->getPageSetup()->setRowsToRepeatAtTopByStartAndEnd(1, 8); // Repite encabezados en cada página del PDF
 
         while ($spreadsheet->getSheetCount() > 1) {
             $activeIndex = $spreadsheet->getActiveSheetIndex();

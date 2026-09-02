@@ -58,11 +58,15 @@ class ExportarListadoEquiposComputoPdfUseCase
             $sheet->mergeCells("H{$row}:I{$row}");
             $sheet->getStyle("H{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_JUSTIFY);
             
+            // Asegurar que cada fila tenga exactamente la misma altura (24pt)
+            $sheet->getRowDimension($row)->setRowHeight(24);
+            
             $row++;
         }
 
         $endRow = $row - 1;
         if ($endRow >= 9) {
+            // Aplicar estilo uniforme de fuente, alineación y bordes a todas las filas
             $sheet->getStyle("B9:Y{$endRow}")->applyFromArray([
                 'borders' => [
                     'allBorders' => [
@@ -70,8 +74,29 @@ class ExportarListadoEquiposComputoPdfUseCase
                         'color' => ['argb' => 'FF000000'],
                     ],
                 ],
+                'alignment' => [
+                    'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                ],
             ]);
+
+            $sheet->getStyle("B9:Y{$endRow}")->getFont()->setName('Arial')->setSize(9.5);
+            $sheet->getStyle("B9:B{$endRow}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("J9:L{$endRow}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("O9:Y{$endRow}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
         }
+
+        // Configuración de página para PDF
+        $sheet->getPageMargins()->setTop(0.4);
+        $sheet->getPageMargins()->setBottom(0.4);
+        $sheet->getPageMargins()->setLeft(0.3);
+        $sheet->getPageMargins()->setRight(0.3);
+
+        $sheet->getPageSetup()->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_LANDSCAPE);
+        $sheet->getPageSetup()->setPaperSize(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::PAPERSIZE_LETTER);
+        $sheet->getPageSetup()->setFitToPage(true);
+        $sheet->getPageSetup()->setFitToWidth(1);
+        $sheet->getPageSetup()->setFitToHeight(0); // 0 permite fluir verticalmente en varias páginas sin aplastar celdas
+        $sheet->getPageSetup()->setRowsToRepeatAtTopByStartAndEnd(1, 8); // Repite encabezados en cada página del PDF
 
         while ($spreadsheet->getSheetCount() > 1) {
             $activeIndex = $spreadsheet->getActiveSheetIndex();
