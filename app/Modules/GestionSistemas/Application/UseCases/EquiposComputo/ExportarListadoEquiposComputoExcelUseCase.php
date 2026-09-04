@@ -12,9 +12,9 @@ class ExportarListadoEquiposComputoExcelUseCase
         protected ObtenerListadoEquiposDTOUseCase $obtenerDatosUseCase
     ) {}
 
-    public function execute(): string
+    public function execute(?int $sedeId = null, ?string $estado = null, ?string $search = null): string
     {
-        $dtos = $this->obtenerDatosUseCase->execute();
+        $dtos = $this->obtenerDatosUseCase->execute($sedeId, $estado, $search);
 
         $templatePath = storage_path('app/templates/plantilla_listado_equipos_computo.xlsx');
         
@@ -25,43 +25,53 @@ class ExportarListadoEquiposComputoExcelUseCase
         $spreadsheet = IOFactory::load($templatePath);
         $sheet = $spreadsheet->getActiveSheet();
 
-        $row = 9; // Suponiendo que la fila 1 tiene los encabezados
-        $contador = 1;
-        foreach ($dtos as $dto) {
-            $sheet->setCellValue('B' . $row, $contador++);
-            $sheet->setCellValue('C' . $row, $dto->equipoComputo);
-            $sheet->setCellValue('D' . $row, $dto->marca);
-            $sheet->setCellValue('E' . $row, $dto->modelo);
-            $sheet->setCellValue('F' . $row, $dto->area);
-            $sheet->setCellValue('G' . $row, $dto->personalEncargado);
-            $sheet->setCellValue('H' . $row, $dto->serial);
-            $sheet->setCellValue('J' . $row, $dto->propiedadEmpleado);
-            $sheet->setCellValue('K' . $row, $dto->ipFijaLocal);
-            $sheet->setCellValue('L' . $row, $dto->numeroInventario);
-            $sheet->setCellValue('M' . $row, $dto->sede);
-            $sheet->setCellValue('N' . $row, $dto->procesador);
-            $sheet->setCellValue('O' . $row, $dto->memoriaRam);
-            $sheet->setCellValue('P' . $row, $dto->windows);
-            $sheet->setCellValue('Q' . $row, $dto->office);
-            $sheet->setCellValue('R' . $row, $dto->nitro);
-            $sheet->setCellValue('S' . $row, $dto->paraCumplimiento);
-            $sheet->setCellValue('T' . $row, $dto->fechaUltimoMantenimiento);
-            $sheet->setCellValue('U' . $row, $dto->hoy);
-            $sheet->setCellValue('V' . $row, $dto->dias);
-            $sheet->setCellValue('W' . $row, $dto->vencimiento);
-            $sheet->setCellValue('X' . $row, $dto->proximaFecha);
-            $sheet->setCellValue('Y' . $row, $dto->estadoProgramacion);
+        if (count($dtos) === 0) {
+            $sheet->removeRow(10, 73 - 10 + 1);
+            $sheet->setCellValue('B9', '');
+            $endRow = 8;
+        } else {
+            $row = 9; // Suponiendo que la fila 1 tiene los encabezados
+            $contador = 1;
+            foreach ($dtos as $dto) {
+                $sheet->setCellValue('B' . $row, $contador++);
+                $sheet->setCellValue('C' . $row, $dto->equipoComputo);
+                $sheet->setCellValue('D' . $row, $dto->marca);
+                $sheet->setCellValue('E' . $row, $dto->modelo);
+                $sheet->setCellValue('F' . $row, $dto->area);
+                $sheet->setCellValue('G' . $row, $dto->personalEncargado);
+                $sheet->setCellValue('H' . $row, $dto->serial);
+                $sheet->setCellValue('J' . $row, $dto->propiedadEmpleado);
+                $sheet->setCellValue('K' . $row, $dto->ipFijaLocal);
+                $sheet->setCellValue('L' . $row, $dto->numeroInventario);
+                $sheet->setCellValue('M' . $row, $dto->sede);
+                $sheet->setCellValue('N' . $row, $dto->procesador);
+                $sheet->setCellValue('O' . $row, $dto->memoriaRam);
+                $sheet->setCellValue('P' . $row, $dto->windows);
+                $sheet->setCellValue('Q' . $row, $dto->office);
+                $sheet->setCellValue('R' . $row, $dto->nitro);
+                $sheet->setCellValue('S' . $row, $dto->paraCumplimiento);
+                $sheet->setCellValue('T' . $row, $dto->fechaUltimoMantenimiento);
+                $sheet->setCellValue('U' . $row, $dto->hoy);
+                $sheet->setCellValue('V' . $row, $dto->dias);
+                $sheet->setCellValue('W' . $row, $dto->vencimiento);
+                $sheet->setCellValue('X' . $row, $dto->proximaFecha);
+                $sheet->setCellValue('Y' . $row, $dto->estadoProgramacion);
 
-            $sheet->mergeCells("H{$row}:I{$row}");
-            $sheet->getStyle("H{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_JUSTIFY);
-            
-            // Asegurar que cada fila tenga exactamente la misma altura (24pt)
-            $sheet->getRowDimension($row)->setRowHeight(24);
-            
-            $row++;
+                $sheet->mergeCells("H{$row}:I{$row}");
+                $sheet->getStyle("H{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_JUSTIFY);
+                
+                // Asegurar que cada fila tenga exactamente la misma altura (24pt)
+                $sheet->getRowDimension($row)->setRowHeight(24);
+                
+                $row++;
+            }
+
+            if ($row <= 73) {
+                $sheet->removeRow($row, 73 - $row + 1);
+            }
+
+            $endRow = $row - 1;
         }
-
-        $endRow = $row - 1;
         if ($endRow >= 9) {
             // Aplicar estilo uniforme de fuente, alineación y bordes a todas las filas
             $sheet->getStyle("B9:Y{$endRow}")->applyFromArray([

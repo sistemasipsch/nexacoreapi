@@ -9,9 +9,9 @@ use Carbon\Carbon;
 
 class ObtenerListadoEquiposDTOUseCase
 {
-    public function execute(): array
+    public function execute(?int $sedeId = null, ?string $estado = null, ?string $search = null): array
     {
-        $equipos = PcEquipo::with([
+        $query = PcEquipo::with([
             'sede', 
             'area', 
             'responsable', 
@@ -23,7 +23,28 @@ class ObtenerListadoEquiposDTOUseCase
             'entregas' => function($q) {
                 $q->orderBy('fecha_entrega', 'desc')->orderBy('id', 'desc')->with('funcionario');
             }
-        ])->get();
+        ]);
+
+        if ($sedeId) {
+            $query->where('sede_id', $sedeId);
+        }
+
+        if ($estado && $estado !== 'todos') {
+            $query->where('estado', $estado);
+        }
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('serial', 'like', "%{$search}%")
+                    ->orWhere('marca', 'like', "%{$search}%")
+                    ->orWhere('modelo', 'like', "%{$search}%")
+                    ->orWhere('numero_inventario', 'like', "%{$search}%")
+                    ->orWhere('nombre_equipo', 'like', "%{$search}%")
+                    ->orWhere('tipo', 'like', "%{$search}%");
+            });
+        }
+
+        $equipos = $query->orderBy('id', 'desc')->get();
 
         $configCronograma = PcConfigCronograma::first();
         // The prompt said: (esta tabla es donde tenemos configurado el tema de cada cuanto dia se hace mantenimiento el equipo, y solo por el momento se esta usando en dias)

@@ -234,16 +234,25 @@ class PcEquipoController extends Controller
         tags: ['PcEquipos (DDD)'],
         summary: 'Exportar listado de equipos a Excel',
         security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'sede_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'estado', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'q', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+        ],
         responses: [
             new OA\Response(response: 200, description: 'Archivo Excel generado')
         ]
     )]
-    public function exportExcel()
+    public function exportExcel(Request $request)
     {
         try {
+            $sedeId = $request->filled('sede_id') && $request->get('sede_id') !== 'todas' ? (int) $request->get('sede_id') : null;
+            $estado = $request->filled('estado') && $request->get('estado') !== 'todos' ? $request->get('estado') : null;
+            $search = $request->filled('q') ? $request->get('q') : null;
+
             $obtenerDatos = new ObtenerListadoEquiposDTOUseCase();
             $useCase = new ExportarListadoEquiposComputoExcelUseCase($obtenerDatos);
-            $fileName = $useCase->execute();
+            $fileName = $useCase->execute($sedeId, $estado, $search);
             $url = asset('storage/exports/' . $fileName);
             
             return ApiResponse::success([
@@ -260,16 +269,25 @@ class PcEquipoController extends Controller
         tags: ['PcEquipos (DDD)'],
         summary: 'Exportar listado de equipos a PDF',
         security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'sede_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'estado', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'q', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+        ],
         responses: [
             new OA\Response(response: 200, description: 'Archivo PDF generado')
         ]
     )]
-    public function exportPdf(\App\Modules\Shared\Domain\Contracts\ExcelToPdfConverterInterface $pdfConverter)
+    public function exportPdf(Request $request, \App\Modules\Shared\Domain\Contracts\ExcelToPdfConverterInterface $pdfConverter)
     {
         try {
+            $sedeId = $request->filled('sede_id') && $request->get('sede_id') !== 'todas' ? (int) $request->get('sede_id') : null;
+            $estado = $request->filled('estado') && $request->get('estado') !== 'todos' ? $request->get('estado') : null;
+            $search = $request->filled('q') ? $request->get('q') : null;
+
             $obtenerDatos = new ObtenerListadoEquiposDTOUseCase();
             $useCase = new ExportarListadoEquiposComputoPdfUseCase($pdfConverter, $obtenerDatos);
-            $fileName = $useCase->execute();
+            $fileName = $useCase->execute($sedeId, $estado, $search);
             $url = asset('storage/exports/' . $fileName);
             
             return ApiResponse::success([
