@@ -8,11 +8,17 @@ use Carbon\Carbon;
 
 class ObtenerCronogramaMantenimientosUseCase
 {
-    public function execute(): array
+    public function execute(?int $sedeId = null): array
     {
-        $equipos = PcEquipo::with(['mantenimientos' => function($q) {
+        $query = PcEquipo::with(['mantenimientos' => function($q) {
             $q->orderBy('fecha', 'desc');
-        }, 'sede', 'area', 'responsable'])->get();
+        }, 'sede', 'area', 'responsable']);
+
+        if ($sedeId) {
+            $query->where('sede_id', $sedeId);
+        }
+
+        $equipos = $query->get();
 
         $cronograma = $equipos->map(function($equipo) {
             $mantoInfo = $this->calculateMaintenanceInfo($equipo);
@@ -35,6 +41,7 @@ class ObtenerCronogramaMantenimientosUseCase
                 'marca' => $equipo->marca,
                 'modelo' => $equipo->modelo,
                 'tipo' => $equipo->tipo,
+                'sede_id' => $equipo->sede_id,
                 'sede' => $equipo->sede?->nombre,
                 'area' => $equipo->area?->nombre,
                 'responsable' => $equipo->responsable?->nombre_completo,

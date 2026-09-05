@@ -7,9 +7,18 @@ use App\Modules\GestionSistemas\Domain\Contracts\PcMantenimientoRepositoryInterf
 
 class PcMantenimientoRepository implements PcMantenimientoRepositoryInterface
 {
-    public function getAll()
+    public function getAll(?int $sedeId = null)
     {
-        return PcMantenimiento::with(['equipo', 'empresaResponsable', 'creador:id,nombre_completo'])->get();
+        $query = PcMantenimiento::with(['equipo.sede', 'equipo.area', 'empresaResponsable', 'creador:id,nombre_completo'])
+            ->orderBy('id', 'desc');
+
+        if ($sedeId) {
+            $query->whereHas('equipo', function($q) use ($sedeId) {
+                $q->where('sede_id', $sedeId);
+            });
+        }
+
+        return $query->get();
     }
 
     public function find(int $id)

@@ -9,16 +9,22 @@ use Carbon\Carbon;
 
 class ObtenerCronogramaExportacionDTOUseCase
 {
-    public function execute(): array
+    public function execute(?int $sedeId = null): array
     {
-        $equipos = PcEquipo::with([
+        $query = PcEquipo::with([
             'sede', 
             'area', 
             'caracteristicasTecnicas', 
             'mantenimientos' => function($q) {
                 $q->orderBy('fecha', 'desc');
             }
-        ])->get();
+        ]);
+
+        if ($sedeId) {
+            $query->where('sede_id', $sedeId);
+        }
+
+        $equipos = $query->get();
 
         $configCronograma = PcConfigCronograma::first();
         $diasCumplimiento = 180;

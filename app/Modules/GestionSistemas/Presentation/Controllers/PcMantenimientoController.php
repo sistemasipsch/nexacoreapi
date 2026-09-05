@@ -39,14 +39,18 @@ class PcMantenimientoController extends Controller
         tags: ['PcMantenimientos (DDD)'],
         summary: 'Listar mantenimientos',
         security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'sede_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+        ],
         responses: [
             new OA\Response(response: 200, description: 'Lista obtenida', content: new OA\JsonContent(ref: '#/components/schemas/ApiResponse')),
             new OA\Response(response: 403, description: 'Prohibido')
         ]
     )]
-    public function index()
+    public function index(Request $request)
     {
-        $items = $this->repository->getAll();
+        $sedeId = $request->filled('sede_id') && !in_array($request->get('sede_id'), ['todas', 'all', 'null', '0', ''], true) ? (int) $request->get('sede_id') : null;
+        $items = $this->repository->getAll($sedeId);
         return ApiResponse::success($items, 'Mantenimientos listados exitosamente');
     }
 
@@ -55,14 +59,18 @@ class PcMantenimientoController extends Controller
         tags: ['PcMantenimientos (DDD)'],
         summary: 'Obtener cronograma de mantenimientos',
         security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'sede_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+        ],
         responses: [
             new OA\Response(response: 200, description: 'Cronograma obtenido exitosamente', content: new OA\JsonContent(ref: '#/components/schemas/ApiResponse'))
         ]
     )]
-    public function cronograma()
+    public function cronograma(Request $request)
     {
+        $sedeId = $request->filled('sede_id') && !in_array($request->get('sede_id'), ['todas', 'all', 'null', '0', ''], true) ? (int) $request->get('sede_id') : null;
         $useCase = new \App\Modules\GestionSistemas\Application\UseCases\MantenimientoEquipos\ObtenerCronogramaMantenimientosUseCase();
-        $cronograma = $useCase->execute();
+        $cronograma = $useCase->execute($sedeId);
         return ApiResponse::success($cronograma, 'Cronograma de mantenimientos obtenido exitosamente');
     }
 
@@ -71,17 +79,21 @@ class PcMantenimientoController extends Controller
         tags: ['PcMantenimientos (DDD)'],
         summary: 'Exportar cronograma de mantenimientos a Excel',
         security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'sede_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+        ],
         responses: [
             new OA\Response(response: 200, description: 'Archivo Excel generado')
         ]
     )]
-    public function exportarCronogramaExcel()
+    public function exportarCronogramaExcel(Request $request)
     {
         $this->permissionService->authorize("pc_mantenimiento.crear");
         try {
+            $sedeId = $request->filled('sede_id') && !in_array($request->get('sede_id'), ['todas', 'all', 'null', '0', ''], true) ? (int) $request->get('sede_id') : null;
             $obtenerDatos = new ObtenerCronogramaExportacionDTOUseCase();
             $useCase = new ExportarCronogramaMantenimientoEquiposExcelUseCase($obtenerDatos);
-            $fileName = $useCase->execute();
+            $fileName = $useCase->execute($sedeId);
             $url = asset('storage/exports/' . $fileName);
             
             return ApiResponse::success([
@@ -98,17 +110,21 @@ class PcMantenimientoController extends Controller
         tags: ['PcMantenimientos (DDD)'],
         summary: 'Exportar cronograma de mantenimientos a PDF',
         security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'sede_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+        ],
         responses: [
             new OA\Response(response: 200, description: 'Archivo PDF generado')
         ]
     )]
-    public function exportarCronogramaPdf(ExcelToPdfConverterInterface $pdfConverter)
+    public function exportarCronogramaPdf(Request $request, ExcelToPdfConverterInterface $pdfConverter)
     {
         $this->permissionService->authorize("pc_mantenimiento.crear");
         try {
+            $sedeId = $request->filled('sede_id') && !in_array($request->get('sede_id'), ['todas', 'all', 'null', '0', ''], true) ? (int) $request->get('sede_id') : null;
             $obtenerDatos = new ObtenerCronogramaExportacionDTOUseCase();
             $useCase = new ExportarCronogramaMantenimientoEquiposPdfUseCase($pdfConverter, $obtenerDatos);
-            $fileName = $useCase->execute();
+            $fileName = $useCase->execute($sedeId);
             $url = asset('storage/exports/' . $fileName);
             
             return ApiResponse::success([
