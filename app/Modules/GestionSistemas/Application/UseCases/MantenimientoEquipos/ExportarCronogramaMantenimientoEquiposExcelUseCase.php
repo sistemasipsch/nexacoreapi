@@ -12,9 +12,9 @@ class ExportarCronogramaMantenimientoEquiposExcelUseCase
         protected ObtenerCronogramaExportacionDTOUseCase $obtenerDatosUseCase
     ) {}
 
-    public function execute(?int $sedeId = null): string
+    public function execute(?int $sedeId = null, ?string $tipoMantenimiento = null): string
     {
-        $dtos = $this->obtenerDatosUseCase->execute($sedeId);
+        $dtos = $this->obtenerDatosUseCase->execute($sedeId, $tipoMantenimiento);
         $templatePath = storage_path('app/templates/plantilla_cronograma_mantenimiento_equipos.xlsx');
         
         if (!file_exists($templatePath)) {
@@ -24,20 +24,32 @@ class ExportarCronogramaMantenimientoEquiposExcelUseCase
         $spreadsheet = IOFactory::load($templatePath);
         $sheet = $spreadsheet->getActiveSheet();
 
+        $tipoLabel = '';
+        if ($tipoMantenimiento && !in_array($tipoMantenimiento, ['all', 'todos', 'todas', ''], true)) {
+            $tipoLabel = ' (' . mb_strtoupper($tipoMantenimiento) . ')';
+        }
+
         if ($sedeId) {
             $sede = \App\Models\Sede::find($sedeId);
             if ($sede) {
-                $sheet->setCellValue('D2', 'CRONOGRAMA DE MANTENIMIENTOS - ' . mb_strtoupper($sede->nombre));
+                $sheet->setCellValue('D2', 'CRONOGRAMA DE MANTENIMIENTOS' . $tipoLabel . ' - ' . mb_strtoupper($sede->nombre));
             }
         } else {
-            $sheet->setCellValue('D2', 'CRONOGRAMA DE MANTENIMIENTOS - TODAS LAS SEDES');
+            $sheet->setCellValue('D2', 'CRONOGRAMA DE MANTENIMIENTOS' . $tipoLabel . ' - TODAS LAS SEDES');
         }
 
         $row = 9; // Fila de inicio
 
         if (count($dtos) === 0) {
             $sheet->setCellValue('B9', 1);
-            $sheet->setCellValue('C9', 'NO SE ENCONTRARON EQUIPOS REGISTRADOS PARA ESTA SEDE');
+            $msg = 'NO SE ENCONTRARON EQUIPOS CON MANTENIMIENTOS REGISTRADOS';
+            if ($sedeId) {
+                $msg .= ' PARA ESTA SEDE';
+            }
+            if ($tipoMantenimiento && !in_array($tipoMantenimiento, ['all', 'todos', 'todas', ''], true)) {
+                $msg .= ' DE TIPO ' . mb_strtoupper($tipoMantenimiento);
+            }
+            $sheet->setCellValue('C9', $msg);
             $sheet->mergeCells('C9:W9');
             $sheet->getStyle('C9')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
             $sheet->getStyle('C9')->getFont()->setBold(true)->setName('Arial')->setSize(9.5);
@@ -129,7 +141,7 @@ class ExportarCronogramaMantenimientoEquiposExcelUseCase
         $sheet->getPageSetup()->setHorizontalCentered(false);
         $sheet->getPageSetup()->setPrintArea("B1:W{$endRow}");
 
-        $filename = 'cronograma_mantenimientos_' . ($sedeId ? 'sede_' . $sedeId . '_' : '') . time() . '.xlsx';
+        $filename = 'cronograma_mantenimientos_' . ($sedeId ? 'sede_' . $sedeId . '_' : '') . ($tipoMantenimiento ? $tipoMantenimiento . '_' : '') . time() . '.xlsx';
         $exportDir = storage_path('app/public/exports');
         
         if (!file_exists($exportDir)) {

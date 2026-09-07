@@ -8,14 +8,23 @@ use Carbon\Carbon;
 
 class ObtenerCronogramaMantenimientosUseCase
 {
-    public function execute(?int $sedeId = null): array
+    public function execute(?int $sedeId = null, ?string $tipoMantenimiento = null): array
     {
-        $query = PcEquipo::with(['mantenimientos' => function($q) {
+        $query = PcEquipo::with(['mantenimientos' => function($q) use ($tipoMantenimiento) {
+            if ($tipoMantenimiento && !in_array($tipoMantenimiento, ['all', 'todos', 'todas', ''], true)) {
+                $q->where('tipo_mantenimiento', $tipoMantenimiento);
+            }
             $q->orderBy('fecha', 'desc');
         }, 'sede', 'area', 'responsable']);
 
         if ($sedeId) {
             $query->where('sede_id', $sedeId);
+        }
+
+        if ($tipoMantenimiento && !in_array($tipoMantenimiento, ['all', 'todos', 'todas', ''], true)) {
+            $query->whereHas('mantenimientos', function($q) use ($tipoMantenimiento) {
+                $q->where('tipo_mantenimiento', $tipoMantenimiento);
+            });
         }
 
         $equipos = $query->get();

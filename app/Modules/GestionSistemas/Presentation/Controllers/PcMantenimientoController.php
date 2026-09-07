@@ -41,6 +41,7 @@ class PcMantenimientoController extends Controller
         security: [['bearerAuth' => []]],
         parameters: [
             new OA\Parameter(name: 'sede_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'tipo_mantenimiento', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
         ],
         responses: [
             new OA\Response(response: 200, description: 'Lista obtenida', content: new OA\JsonContent(ref: '#/components/schemas/ApiResponse')),
@@ -50,7 +51,8 @@ class PcMantenimientoController extends Controller
     public function index(Request $request)
     {
         $sedeId = $request->filled('sede_id') && !in_array($request->get('sede_id'), ['todas', 'all', 'null', '0', ''], true) ? (int) $request->get('sede_id') : null;
-        $items = $this->repository->getAll($sedeId);
+        $tipoMantenimiento = $request->filled('tipo_mantenimiento') && !in_array(strtolower($request->get('tipo_mantenimiento')), ['todas', 'todos', 'all', 'null', ''], true) ? $request->get('tipo_mantenimiento') : null;
+        $items = $this->repository->getAll($sedeId, $tipoMantenimiento);
         return ApiResponse::success($items, 'Mantenimientos listados exitosamente');
     }
 
@@ -61,6 +63,7 @@ class PcMantenimientoController extends Controller
         security: [['bearerAuth' => []]],
         parameters: [
             new OA\Parameter(name: 'sede_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'tipo_mantenimiento', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
         ],
         responses: [
             new OA\Response(response: 200, description: 'Cronograma obtenido exitosamente', content: new OA\JsonContent(ref: '#/components/schemas/ApiResponse'))
@@ -69,8 +72,9 @@ class PcMantenimientoController extends Controller
     public function cronograma(Request $request)
     {
         $sedeId = $request->filled('sede_id') && !in_array($request->get('sede_id'), ['todas', 'all', 'null', '0', ''], true) ? (int) $request->get('sede_id') : null;
+        $tipoMantenimiento = $request->filled('tipo_mantenimiento') && !in_array(strtolower($request->get('tipo_mantenimiento')), ['todas', 'todos', 'all', 'null', ''], true) ? $request->get('tipo_mantenimiento') : null;
         $useCase = new \App\Modules\GestionSistemas\Application\UseCases\MantenimientoEquipos\ObtenerCronogramaMantenimientosUseCase();
-        $cronograma = $useCase->execute($sedeId);
+        $cronograma = $useCase->execute($sedeId, $tipoMantenimiento);
         return ApiResponse::success($cronograma, 'Cronograma de mantenimientos obtenido exitosamente');
     }
 
@@ -81,6 +85,7 @@ class PcMantenimientoController extends Controller
         security: [['bearerAuth' => []]],
         parameters: [
             new OA\Parameter(name: 'sede_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'tipo_mantenimiento', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
         ],
         responses: [
             new OA\Response(response: 200, description: 'Archivo Excel generado')
@@ -91,9 +96,10 @@ class PcMantenimientoController extends Controller
         $this->permissionService->authorize("pc_mantenimiento.crear");
         try {
             $sedeId = $request->filled('sede_id') && !in_array($request->get('sede_id'), ['todas', 'all', 'null', '0', ''], true) ? (int) $request->get('sede_id') : null;
+            $tipoMantenimiento = $request->filled('tipo_mantenimiento') && !in_array(strtolower($request->get('tipo_mantenimiento')), ['todas', 'todos', 'all', 'null', ''], true) ? $request->get('tipo_mantenimiento') : null;
             $obtenerDatos = new ObtenerCronogramaExportacionDTOUseCase();
             $useCase = new ExportarCronogramaMantenimientoEquiposExcelUseCase($obtenerDatos);
-            $fileName = $useCase->execute($sedeId);
+            $fileName = $useCase->execute($sedeId, $tipoMantenimiento);
             $url = asset('storage/exports/' . $fileName);
             
             return ApiResponse::success([
@@ -112,6 +118,7 @@ class PcMantenimientoController extends Controller
         security: [['bearerAuth' => []]],
         parameters: [
             new OA\Parameter(name: 'sede_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'tipo_mantenimiento', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
         ],
         responses: [
             new OA\Response(response: 200, description: 'Archivo PDF generado')
@@ -122,9 +129,10 @@ class PcMantenimientoController extends Controller
         $this->permissionService->authorize("pc_mantenimiento.crear");
         try {
             $sedeId = $request->filled('sede_id') && !in_array($request->get('sede_id'), ['todas', 'all', 'null', '0', ''], true) ? (int) $request->get('sede_id') : null;
+            $tipoMantenimiento = $request->filled('tipo_mantenimiento') && !in_array(strtolower($request->get('tipo_mantenimiento')), ['todas', 'todos', 'all', 'null', ''], true) ? $request->get('tipo_mantenimiento') : null;
             $obtenerDatos = new ObtenerCronogramaExportacionDTOUseCase();
             $useCase = new ExportarCronogramaMantenimientoEquiposPdfUseCase($pdfConverter, $obtenerDatos);
-            $fileName = $useCase->execute($sedeId);
+            $fileName = $useCase->execute($sedeId, $tipoMantenimiento);
             $url = asset('storage/exports/' . $fileName);
             
             return ApiResponse::success([
