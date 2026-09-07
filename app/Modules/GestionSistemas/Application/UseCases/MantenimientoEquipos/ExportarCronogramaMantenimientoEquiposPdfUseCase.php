@@ -112,6 +112,22 @@ class ExportarCronogramaMantenimientoEquiposPdfUseCase
             $sheet->getStyle("N9:W{$endRow}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
         }
 
+        // Asegurar bordes derechos completos en toda la tabla y encabezados (W2 a WendRow)
+        for ($r = 2; $r <= 6; $r++) {
+            $sheet->getStyle("W{$r}")->getBorders()->getRight()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+        }
+        $sheet->getStyle("B8:W8")->applyFromArray([
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                    'color' => ['argb' => 'FF000000'],
+                ],
+            ],
+        ]);
+        if ($endRow >= 9) {
+            $sheet->getStyle("W9:W{$endRow}")->getBorders()->getRight()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+        }
+
         // Configuración de página para PDF
         $sheet->getPageMargins()->setTop(0.4);
         $sheet->getPageMargins()->setBottom(0.4);
@@ -124,6 +140,8 @@ class ExportarCronogramaMantenimientoEquiposPdfUseCase
         $sheet->getPageSetup()->setFitToWidth(1);
         $sheet->getPageSetup()->setFitToHeight(0); // Permite flujo multi-página vertical
         $sheet->getPageSetup()->setRowsToRepeatAtTopByStartAndEnd(1, 8); // Repite encabezados en cada página del PDF
+        $sheet->getPageSetup()->setVerticalCentered(false);
+        $sheet->getPageSetup()->setHorizontalCentered(false);
         $sheet->getPageSetup()->setPrintArea("B1:W{$endRow}");
 
         while ($spreadsheet->getSheetCount() > 1) {
