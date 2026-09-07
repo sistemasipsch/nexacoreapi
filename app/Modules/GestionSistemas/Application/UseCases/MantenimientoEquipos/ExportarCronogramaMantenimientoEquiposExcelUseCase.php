@@ -116,10 +116,33 @@ class ExportarCronogramaMantenimientoEquiposExcelUseCase
             ]);
 
             $sheet->getStyle("B9:W{$endRow}")->getFont()->setName('Arial')->setSize(9);
-            $sheet->getStyle("B9:B{$endRow}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle("I9:K{$endRow}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle("N9:W{$endRow}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+
+            if (count($dtos) > 0) {
+                // Columnas de texto: C, D, E, F, G, L -> Todas a la IZQUIERDA con indentación limpia (encabezado y datos)
+                $sheet->getStyle("C8:G{$endRow}")->getAlignment()
+                    ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT)
+                    ->setIndent(1);
+
+                $sheet->getStyle("L8:L{$endRow}")->getAlignment()
+                    ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT)
+                    ->setIndent(1);
+
+                // Columnas de códigos, números, fechas y estados: B, H..K, M..W -> Todas CENTRADAS (encabezado y datos)
+                $sheet->getStyle("B8:B{$endRow}")->getAlignment()
+                    ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+
+                $sheet->getStyle("H8:K{$endRow}")->getAlignment()
+                    ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+
+                $sheet->getStyle("M8:W{$endRow}")->getAlignment()
+                    ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            }
         }
+
+        // Encabezado fila 8 con ajuste de texto y centrado vertical
+        $sheet->getStyle("B8:W8")->getAlignment()
+            ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER)
+            ->setWrapText(true);
 
         // Asegurar bordes derechos completos en toda la tabla y encabezados (W2 a WendRow)
         for ($r = 2; $r <= 6; $r++) {
@@ -137,8 +160,19 @@ class ExportarCronogramaMantenimientoEquiposExcelUseCase
             $sheet->getStyle("W9:W{$endRow}")->getBorders()->getRight()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
         }
 
+        $sheet->getPageMargins()->setTop(0.4);
+        $sheet->getPageMargins()->setBottom(0.4);
+        $sheet->getPageMargins()->setLeft(0.3);
+        $sheet->getPageMargins()->setRight(0.3);
+
+        $sheet->getPageSetup()->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_LANDSCAPE);
+        $sheet->getPageSetup()->setPaperSize(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::PAPERSIZE_LETTER);
+        $sheet->getPageSetup()->setFitToPage(true);
+        $sheet->getPageSetup()->setFitToWidth(1);
+        $sheet->getPageSetup()->setFitToHeight(0);
+        $sheet->getPageSetup()->setRowsToRepeatAtTopByStartAndEnd(1, 8);
         $sheet->getPageSetup()->setVerticalCentered(false);
-        $sheet->getPageSetup()->setHorizontalCentered(false);
+        $sheet->getPageSetup()->setHorizontalCentered(true);
         $sheet->getPageSetup()->setPrintArea("B1:W{$endRow}");
 
         $filename = 'cronograma_mantenimientos_' . ($sedeId ? 'sede_' . $sedeId . '_' : '') . ($tipoMantenimiento ? $tipoMantenimiento . '_' : '') . time() . '.xlsx';

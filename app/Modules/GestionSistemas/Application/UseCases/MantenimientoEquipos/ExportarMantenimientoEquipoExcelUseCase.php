@@ -78,6 +78,9 @@ class ExportarMantenimientoEquipoExcelUseCase
         $this->insertarFirma($sheet, $mantenimiento->firma_personal_cargo, 'AG11');
         $this->insertarFirma($sheet, $mantenimiento->firma_sistemas, 'AJ11');
 
+        $sheet->getPageSetup()->setHorizontalCentered(true);
+        $sheet->getPageSetup()->setVerticalCentered(false);
+
         $fileName = 'mantenimiento_equipo_' . $mantenimiento->id . '_' . time() . '.xlsx';
         $exportPath = storage_path('app/public/exports/' . $fileName);
         

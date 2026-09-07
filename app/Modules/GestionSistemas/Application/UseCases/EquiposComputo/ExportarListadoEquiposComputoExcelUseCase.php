@@ -58,7 +58,6 @@ class ExportarListadoEquiposComputoExcelUseCase
                 $sheet->setCellValue('Y' . $row, $dto->estadoProgramacion);
 
                 $sheet->mergeCells("H{$row}:I{$row}");
-                $sheet->getStyle("H{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_JUSTIFY);
                 
                 // Asegurar que cada fila tenga exactamente la misma altura (24pt)
                 $sheet->getRowDimension($row)->setRowHeight(24);
@@ -72,6 +71,7 @@ class ExportarListadoEquiposComputoExcelUseCase
 
             $endRow = $row - 1;
         }
+
         if ($endRow >= 9) {
             // Aplicar estilo uniforme de fuente, alineación y bordes a todas las filas
             $sheet->getStyle("B9:Y{$endRow}")->applyFromArray([
@@ -87,10 +87,49 @@ class ExportarListadoEquiposComputoExcelUseCase
             ]);
 
             $sheet->getStyle("B9:Y{$endRow}")->getFont()->setName('Arial')->setSize(9.5);
-            $sheet->getStyle("B9:B{$endRow}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle("J9:L{$endRow}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-            $sheet->getStyle("O9:Y{$endRow}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+
+            if (count($dtos) > 0) {
+                // Columnas de texto: C, D, E, F, G, M, N -> Todas a la IZQUIERDA con indentación limpia (encabezado y datos)
+                $sheet->getStyle("C8:G{$endRow}")->getAlignment()
+                    ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT)
+                    ->setIndent(1);
+
+                $sheet->getStyle("M8:N{$endRow}")->getAlignment()
+                    ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT)
+                    ->setIndent(1);
+
+                // Columnas de números, códigos, fechas y estados: B, H..L, O..Y -> Todas CENTRADAS (encabezado y datos)
+                $sheet->getStyle("B8:B{$endRow}")->getAlignment()
+                    ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+
+                $sheet->getStyle("H8:L{$endRow}")->getAlignment()
+                    ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+
+                $sheet->getStyle("O8:Y{$endRow}")->getAlignment()
+                    ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+            }
         }
+
+        // Encabezado fila 8 con ajuste de texto y centrado vertical
+        $sheet->getStyle("B8:Y8")->getAlignment()
+            ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER)
+            ->setWrapText(true);
+
+        // Configuración de página para impresión/PDF en Excel
+        $sheet->getPageMargins()->setTop(0.4);
+        $sheet->getPageMargins()->setBottom(0.4);
+        $sheet->getPageMargins()->setLeft(0.3);
+        $sheet->getPageMargins()->setRight(0.3);
+
+        $sheet->getPageSetup()->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_LANDSCAPE);
+        $sheet->getPageSetup()->setPaperSize(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::PAPERSIZE_LETTER);
+        $sheet->getPageSetup()->setFitToPage(true);
+        $sheet->getPageSetup()->setFitToWidth(1);
+        $sheet->getPageSetup()->setFitToHeight(0);
+        $sheet->getPageSetup()->setRowsToRepeatAtTopByStartAndEnd(1, 8);
+        $sheet->getPageSetup()->setVerticalCentered(false);
+        $sheet->getPageSetup()->setHorizontalCentered(true);
+        $sheet->getPageSetup()->setPrintArea("B1:Y{$endRow}");
 
         $filename = 'listado_equipos_' . time() . '.xlsx';
         $exportDir = storage_path('app/public/exports');

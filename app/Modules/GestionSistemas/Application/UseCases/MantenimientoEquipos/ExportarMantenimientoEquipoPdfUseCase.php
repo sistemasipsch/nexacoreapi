@@ -88,6 +88,9 @@ class ExportarMantenimientoEquipoPdfUseCase
         // Las firmas ya fueron insertadas.
         // NOTA: No eliminamos hojas adicionales aquí para evitar que LibreOffice falle por referencias corruptas.
 
+        $sheet->getPageSetup()->setHorizontalCentered(true);
+        $sheet->getPageSetup()->setVerticalCentered(false);
+
         $filename = 'mantenimiento_equipo_' . $mantenimiento->id . '_' . time() . '.pdf';
 
         $tempExcelPath = tempnam(sys_get_temp_dir(), 'mantenimiento_excel_') . '.xlsx';
