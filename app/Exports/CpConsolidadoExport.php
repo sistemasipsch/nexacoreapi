@@ -19,8 +19,9 @@ use Exception;
 class CpConsolidadoExport
 {
     /**
-     * Formatea cualquier fecha/hora a la zona horaria de Colombia (America/Bogota)
-     * mostrando fecha exacta y hora exacta con formato 12h (ej: 25/08/2026 2:52 PM).
+     * Formatea cualquier fecha/hora tal como está guardada en la BD (hora local).
+     * Si contiene hora real (diferente de 00:00:00), muestra fecha y hora exacta (ej: 27/08/2026 1:04 PM).
+     * Si es fecha histórica sin hora (00:00:00), muestra únicamente la fecha (ej: 01/10/2025).
      */
     private function formatDateTime($value): string
     {
@@ -30,10 +31,23 @@ class CpConsolidadoExport
 
         try {
             if ($value instanceof \DateTimeInterface) {
-                return Carbon::instance($value)->setTimezone('America/Bogota')->format('d/m/Y g:i A');
+                $raw = $value->format('Y-m-d H:i:s');
+            } else {
+                $raw = trim((string) $value);
             }
 
-            return Carbon::parse($value, 'UTC')->setTimezone('America/Bogota')->format('d/m/Y g:i A');
+            if (empty($raw)) {
+                return '';
+            }
+
+            $c = Carbon::parse($raw);
+
+            // Si la hora es exactamente 00:00:00 (fecha histórica sin hora específica almacenada)
+            if ($c->format('H:i:s') === '00:00:00') {
+                return $c->format('d/m/Y');
+            }
+
+            return $c->format('d/m/Y g:i A');
         } catch (\Throwable $e) {
             return (string) $value;
         }
@@ -83,24 +97,20 @@ class CpConsolidadoExport
         $spreadsheet = IOFactory::load($templatePath);
         $sheet = $spreadsheet->getActiveSheet();
 
-        // Extender el encabezado del título en fila 1 hasta columna M
+        // Extender el encabezado del título en fila 1 hasta columna L
         $sheet->duplicateStyle($sheet->getStyle('K1'), 'L1');
-        $sheet->duplicateStyle($sheet->getStyle('K1'), 'M1');
         $sheet->unmergeCells('A1:K1');
-        $sheet->mergeCells('A1:M1');
+        $sheet->mergeCells('A1:L1');
 
-        // Encabezados de columnas de entrega
-        $sheet->setCellValue('L2', 'ESTADO ENTREGA');
+        // Encabezado de la columna ENTREGADO
+        $sheet->setCellValue('L2', 'ENTREGADO');
         $sheet->duplicateStyle($sheet->getStyle('K2'), 'L2');
-        $sheet->setCellValue('M2', 'FECHA DE ENTREGA');
-        $sheet->duplicateStyle($sheet->getStyle('K2'), 'M2');
 
         // Ajustar anchos de columnas para asegurar legibilidad completa de fechas y horas
         $sheet->getColumnDimension('A')->setWidth(23);
         $sheet->getColumnDimension('I')->setWidth(23);
-        $sheet->getColumnDimension('J')->setWidth(26);
-        $sheet->getColumnDimension('L')->setWidth(20);
-        $sheet->getColumnDimension('M')->setWidth(23);
+        $sheet->getColumnDimension('J')->setWidth(25);
+        $sheet->getColumnDimension('L')->setWidth(24);
 
         $startRow = 3;
         foreach ($pedidos as $i => $pedido) {
@@ -126,15 +136,12 @@ class CpConsolidadoExport
             $fechasEntregado = $pedido->items
                 ->where('comprado', 1)
                 ->pluck('fecha_entregado')
-                ->filter()
-                ->map(function ($f) {
-                    return Carbon::parse($f, 'UTC')->setTimezone('America/Bogota');
-                });
+                ->filter();
 
             $fechaFinalEntregado = '';
             if ($isEntregado) {
                 if ($fechasEntregado->isNotEmpty()) {
-                    $fechaFinalEntregado = $fechasEntregado->max()->format('d/m/Y g:i A');
+                    $fechaFinalEntregado = $this->formatDateTime($fechasEntregado->max());
                 } elseif ($pedido->fecha_compra) {
                     $fechaFinalEntregado = $this->formatDateTime($pedido->fecha_compra);
                 } elseif ($pedido->fecha_solicitud) {
@@ -142,9 +149,16 @@ class CpConsolidadoExport
                 }
             }
 
-            $estadoEntrega = $isEntregado ? 'Entregado' : 'Pendiente';
+            if ($isEntregado) {
+                $contenidoEntrega = "Entregado";
+                if (!empty($fechaFinalEntregado)) {
+                    $contenidoEntrega .= "\n" . $fechaFinalEntregado;
+                }
+            } else {
+                $contenidoEntrega = 'Pendiente';
+            }
 
-            // Asignar celdas con fechas y horas exactas formateadas en zona horaria Colombia
+            // Asignar celdas con fechas y horas exactas formateadas
             $sheet->setCellValue("A{$row}", $this->formatDateTime($pedido->fecha_solicitud));
             $sheet->setCellValue("B{$row}", $pedido->solicitante?->nombre);
             $sheet->setCellValue("C{$row}", $pedido->sede?->nombre);
@@ -170,11 +184,9 @@ class CpConsolidadoExport
             $sheet->setCellValue("J{$row}", $this->formatDateTime($pedido->fecha_gerencia));
             $sheet->setCellValue("K{$row}", $pedido->observaciones_pedidos);
 
-            // Columna L (Estado Entrega) y Columna M (Fecha Entrega)
-            $sheet->setCellValue("L{$row}", $estadoEntrega);
+            // Columna L (ENTREGADO con estado y fecha/hora debajo)
+            $sheet->setCellValue("L{$row}", $contenidoEntrega);
             $sheet->duplicateStyle($sheet->getStyle("K{$row}"), "L{$row}");
-            $sheet->setCellValue("M{$row}", $fechaFinalEntregado);
-            $sheet->duplicateStyle($sheet->getStyle("K{$row}"), "M{$row}");
 
             // Resaltar estado de entrega visualmente
             if ($isEntregado) {
@@ -195,8 +207,7 @@ class CpConsolidadoExport
             $sheet->getStyle("A{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
             $sheet->getStyle("I{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
             $sheet->getStyle("J{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
-            $sheet->getStyle("L{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
-            $sheet->getStyle("M{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
+            $sheet->getStyle("L{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER)->setWrapText(true);
         }
 
         return new StreamedResponse(function () use ($spreadsheet) {
