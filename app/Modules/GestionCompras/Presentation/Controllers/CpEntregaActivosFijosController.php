@@ -92,15 +92,29 @@ class CpEntregaActivosFijosController extends Controller
             $query->where('sede_id', $request->sede_id);
         }
 
+        if ($request->filled('personal_id')) {
+            $query->where('personal_id', $request->personal_id);
+        }
+
+        if ($request->filled('coordinador_id')) {
+            $query->where('coordinador_id', $request->coordinador_id);
+        }
+
         if ($request->filled('search')) {
-            $search = $request->search;
+            $search = trim($request->search);
             $query->where(function($q) use ($search) {
                 $q->whereHas('personal', function($qPersonal) use ($search) {
                     $qPersonal->where('nombre', 'like', "%{$search}%")
                               ->orWhere('cedula', 'like', "%{$search}%");
                 })->orWhereHas('coordinador', function($qCoord) use ($search) {
-                    $qCoord->where('nombre', 'like', "%{$search}%");
-                })->orWhere('id', 'like', "%{$search}%");
+                    $qCoord->where('nombre', 'like', "%{$search}%")
+                           ->orWhere('cedula', 'like', "%{$search}%");
+                })->orWhere('id', 'like', "%{$search}%")
+                  ->orWhereHas('items.inventario', function($qInv) use ($search) {
+                      $qInv->where('codigo', 'like', "%{$search}%")
+                           ->orWhere('serial', 'like', "%{$search}%")
+                           ->orWhere('nombre', 'like', "%{$search}%");
+                  });
             });
         }
 
@@ -416,6 +430,22 @@ class CpEntregaActivosFijosController extends Controller
         return response()->json([
             'mensaje' => 'Coordinadores obtenidos exitosamente',
             'objeto' => $this->obtenerCoordinadoresUseCase->execute(),
+            'status' => 200
+        ]);
+    }
+
+    public function personas()
+    {
+        $this->permissionService->authorize('cp_entrega_activos_fijos.listar');
+        $personas = \App\Models\Personal::whereIn('id', function ($query) {
+            $query->select('personal_id')
+                ->from('cp_entrega_activos_fijos')
+                ->whereNotNull('personal_id');
+        })->orderBy('nombre')->get(['id', 'nombre', 'cedula']);
+
+        return response()->json([
+            'mensaje' => 'Personas obtenidas exitosamente',
+            'objeto' => $personas,
             'status' => 200
         ]);
     }

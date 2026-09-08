@@ -22,6 +22,7 @@ Route::prefix('gestion-compras')->middleware('auth:api')->group(function () {
 
     // Entregas de Activos Fijos
     Route::get('cp-entrega-activos-fijos/coordinadores', [\App\Modules\GestionCompras\Presentation\Controllers\CpEntregaActivosFijosController::class, 'coordinadores']);
+    Route::get('cp-entrega-activos-fijos/personas', [\App\Modules\GestionCompras\Presentation\Controllers\CpEntregaActivosFijosController::class, 'personas']);
     Route::get('cp-entrega-activos-fijos/coordinador/{id}', [\App\Modules\GestionCompras\Presentation\Controllers\CpEntregaActivosFijosController::class, 'porCoordinador']);
     Route::post('cp-entrega-activos-fijos/transferir-todo', [\App\Modules\GestionCompras\Presentation\Controllers\CpEntregaActivosFijosController::class, 'transferirTodo']);
     Route::get('cp-entrega-activos-fijos/{id}/exportar-excel', [\App\Modules\GestionCompras\Presentation\Controllers\CpEntregaActivosFijosController::class, 'exportExcel']);

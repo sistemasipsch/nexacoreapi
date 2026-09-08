@@ -85,6 +85,8 @@ class CpEntregaActivosFijosExport
 
         $highestRow = $sheet->getHighestRow();
         $sheet->getPageSetup()->setPrintArea("A1:U{$highestRow}");
+        $sheet->getPageSetup()->setOrientation(PageSetup::ORIENTATION_LANDSCAPE);
+        $sheet->getPageSetup()->setPaperSize(PageSetup::PAPERSIZE_LETTER);
         $sheet->getPageSetup()->setFitToPage(true);
         $sheet->getPageSetup()->setFitToWidth(1);
         $sheet->getPageSetup()->setFitToHeight(0);
@@ -200,6 +202,12 @@ class CpEntregaActivosFijosExport
                     $colTipo = $mapPrefix[$grp];
                 }
             }
+            if (!$colTipo && $inv && $inv->grupo_activos) {
+                $grpA = strtoupper(trim($inv->grupo_activos));
+                if (isset($mapPrefix[$grpA])) {
+                    $colTipo = $mapPrefix[$grpA];
+                }
+            }
             if ($colTipo) {
                 $sheet->setCellValue($colTipo . $row, "X");
             }
@@ -244,6 +252,8 @@ class CpEntregaActivosFijosExport
         $sheet->setCellValue("N" . ($sigRow + 1), $labelRecibe);
         $sheet->getStyle("B" . ($sigRow + 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER)->setWrapText(true);
         $sheet->getStyle("N" . ($sigRow + 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER)->setWrapText(true);
+        $sheet->getRowDimension($sigRow + 1)->setRowHeight(20);
+        $sheet->getRowDimension($sigRow + 2)->setRowHeight(18);
 
         // Resolver firmas con fallbacks
         $firmaEntrega = $entrega->getRawOriginal('firma_quien_entrega') 
