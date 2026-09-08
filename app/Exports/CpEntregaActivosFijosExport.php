@@ -240,6 +240,9 @@ class CpEntregaActivosFijosExport
         // 3. Fila de Firmas (desplazada dinámicamente según filas insertadas)
         $sigRow = 20 + $extraRows;
         $sheet->getRowDimension($sigRow)->setRowHeight(58);
+        if ($extraRows > 0) {
+            $sheet->getRowDimension(19 + $extraRows)->setRowHeight(8.25);
+        }
 
         $nombreEntrega = $entrega->coordinador?->nombre ?? '';
         $nombreRecibe = $entrega->personal?->nombre ?? '';
@@ -271,9 +274,9 @@ class CpEntregaActivosFijosExport
             ?? $entrega->personal?->getRawOriginal('firma') 
             ?? $entrega->personal?->firma;
 
-        // Insertar firmas en las celdas principales de los rangos combinados
-        $this->insertFirma($sheet, $firmaEntrega, "B{$sigRow}");
-        $this->insertFirma($sheet, $firmaRecibe, "N{$sigRow}");
+        // Insertar firmas en las celdas centrales de los rangos combinados (B..M -> H, N..U -> R)
+        $this->insertFirma($sheet, $firmaEntrega, "H{$sigRow}");
+        $this->insertFirma($sheet, $firmaRecibe, "R{$sigRow}");
 
         // 4. Configuración de Página y Área de Impresión
         $highestRow = $sheet->getHighestRow();
@@ -314,26 +317,8 @@ class CpEntregaActivosFijosExport
             $drawing->setPath($realPath);
             $drawing->setCoordinates($cell);
             $drawing->setResizeProportional(true);
-            $drawing->setHeight(48);
-
-            $origW = $imageInfo[0];
-            $origH = $imageInfo[1];
-            $calcW = ($origH > 0) ? ($origW / $origH) * 48 : 120;
-            if ($calcW > 220) {
-                $drawing->setResizeProportional(true);
-                $drawing->setWidth(220);
-                $calcW = 220;
-            }
-
-            // Centrado dinámico respecto al ancho del bloque combinado
-            // Bloque B..M tiene ~899px, Bloque N..U tiene ~750px
-            if (str_starts_with($cell, 'B')) {
-                $offsetX = max(30, (int) ((899 - $calcW) / 2));
-            } else {
-                $offsetX = max(30, (int) ((750 - $calcW) / 2));
-            }
-
-            $drawing->setOffsetX($offsetX);
+            $drawing->setHeight(46);
+            $drawing->setOffsetX(0);
             $drawing->setOffsetY(4);
             $drawing->setWorksheet($sheet);
         } catch (\Throwable $e) {
@@ -380,6 +365,8 @@ class CpEntregaActivosFijosExport
             return storage_path('app/public/' . $cleanPath);
         } elseif (file_exists(storage_path('app/' . $cleanPath))) {
             return storage_path('app/' . $cleanPath);
+        } elseif (file_exists($path)) {
+            return $path;
         }
 
         return null;
