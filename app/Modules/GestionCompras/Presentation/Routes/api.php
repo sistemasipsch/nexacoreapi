@@ -25,6 +25,7 @@ Route::prefix('gestion-compras')->middleware('auth:api')->group(function () {
     Route::get('cp-entrega-activos-fijos/coordinador/{id}', [\App\Modules\GestionCompras\Presentation\Controllers\CpEntregaActivosFijosController::class, 'porCoordinador']);
     Route::post('cp-entrega-activos-fijos/transferir-todo', [\App\Modules\GestionCompras\Presentation\Controllers\CpEntregaActivosFijosController::class, 'transferirTodo']);
     Route::get('cp-entrega-activos-fijos/{id}/exportar-excel', [\App\Modules\GestionCompras\Presentation\Controllers\CpEntregaActivosFijosController::class, 'exportExcel']);
+    Route::get('cp-entrega-activos-fijos/{id}/exportar-pdf', [\App\Modules\GestionCompras\Presentation\Controllers\CpEntregaActivosFijosController::class, 'exportPdf']);
     Route::post('cp-entrega-activos-fijos/{id}/transferir', [\App\Modules\GestionCompras\Presentation\Controllers\CpEntregaActivosFijosController::class, 'transferir']);
     Route::apiResource('cp-entrega-activos-fijos', \App\Modules\GestionCompras\Presentation\Controllers\CpEntregaActivosFijosController::class);
 

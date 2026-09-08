@@ -376,6 +376,40 @@ class CpEntregaActivosFijosController extends Controller
         }
     }
 
+    /**
+     * Exportar entrega a PDF.
+     */
+    #[OA\Get(
+        path: '/api/gestion-compras/cp-entrega-activos-fijos/{id}/exportar-pdf',
+        tags: ['Entrega de Activos Fijos'],
+        summary: 'Exportar entrega a PDF',
+        description: 'Genera y descarga un archivo PDF de la entrega especificada.',
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Archivo PDF generado'),
+            new OA\Response(response: 404, description: 'Entrega no encontrada'),
+            new OA\Response(response: 500, description: 'Error al generar el PDF')
+        ]
+    )]
+    public function exportPdf($id, \App\Modules\Shared\Domain\Contracts\ExcelToPdfConverterInterface $pdfConverter)
+    {
+        $this->permissionService->authorize('cp_entrega_activos_fijos.listar');
+
+        try {
+            $export = new CpEntregaActivosFijosExport($pdfConverter);
+            return $export->generatePdf((int)$id);
+        } catch (Exception $e) {
+            return response()->json([
+                'mensaje' => 'Error al exportar a PDF: ' . $e->getMessage(),
+                'objeto' => null,
+                'status' => 500
+            ], 500);
+        }
+    }
+
     public function coordinadores()
     {
         $this->permissionService->authorize('cp_entrega_activos_fijos.listar');
