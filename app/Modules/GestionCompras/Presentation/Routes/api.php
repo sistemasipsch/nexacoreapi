@@ -5,6 +5,8 @@ use App\Modules\GestionCompras\Presentation\Controllers\InventarioSearchControll
 
 Route::prefix('gestion-compras')->middleware('auth:api')->group(function () {
     Route::get('/inventario/buscar', [InventarioSearchController::class, 'search']);
+    Route::get('/inventario/exportar-excel', [\App\Modules\GestionCompras\Presentation\Controllers\CpInventarioController::class, 'exportExcel']);
+    Route::get('/inventario/exportar-pdf', [\App\Modules\GestionCompras\Presentation\Controllers\CpInventarioController::class, 'exportPdf']);
 
     // Gestion Compras Generales
     Route::apiResource('cp-centro-costos', \App\Modules\GestionCompras\Presentation\Controllers\CpCentroCostoController::class);

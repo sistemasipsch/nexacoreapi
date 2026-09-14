@@ -72,6 +72,8 @@ Route::group(['middleware' => 'api'], function () {
         // Activity heartbeat moved to Autenticacion
 
         Route::get('/inventario/by-responsable-coordinador', [App\Modules\GestionCompras\Presentation\Controllers\CpInventarioController::class, 'getByResponsableAndCoordinador']);
+        Route::get('inventario/exportar-excel', [App\Modules\GestionCompras\Presentation\Controllers\CpInventarioController::class, 'exportExcel']);
+        Route::get('inventario/exportar-pdf', [App\Modules\GestionCompras\Presentation\Controllers\CpInventarioController::class, 'exportPdf']);
         Route::get('inventario', [App\Modules\GestionCompras\Presentation\Controllers\CpInventarioController::class, 'index']);
         Route::get('inventario/{id}', [App\Modules\GestionCompras\Presentation\Controllers\CpInventarioController::class, 'show']);
         Route::post('inventario', [App\Modules\GestionCompras\Presentation\Controllers\CpInventarioController::class, 'store']);

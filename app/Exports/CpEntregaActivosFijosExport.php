@@ -369,6 +369,21 @@ class CpEntregaActivosFijosExport
             return $path;
         }
 
+        // Si es una URL remota http/https, intentar descargar temporalmente
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            try {
+                $resp = \Illuminate\Support\Facades\Http::timeout(3)->get($path);
+                if ($resp->successful() && strlen($resp->body()) > 0) {
+                    $ext = pathinfo(parse_url($path, PHP_URL_PATH), PATHINFO_EXTENSION) ?: 'png';
+                    $tempPath = tempnam(sys_get_temp_dir(), 'sig_url_') . '.' . $ext;
+                    file_put_contents($tempPath, $resp->body());
+                    return $tempPath;
+                }
+            } catch (\Throwable $e) {
+                // Ignorar error de descarga
+            }
+        }
+
         return null;
     }
 }

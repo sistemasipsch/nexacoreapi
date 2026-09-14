@@ -14,6 +14,8 @@ use App\Modules\GestionCompras\Application\UseCases\Inventario\CrearInventarioUs
 use App\Modules\GestionCompras\Application\UseCases\Inventario\ObtenerInventarioUseCase;
 use App\Modules\GestionCompras\Application\UseCases\Inventario\ActualizarInventarioUseCase;
 use App\Modules\GestionCompras\Application\UseCases\Inventario\EliminarInventarioUseCase;
+use App\Modules\GestionCompras\Application\UseCases\Inventario\ExportarInventarioExcelUseCase;
+use App\Modules\GestionCompras\Application\UseCases\Inventario\ExportarInventarioPdfUseCase;
 
 class CpInventarioController extends Controller
 {
@@ -39,10 +41,10 @@ class CpInventarioController extends Controller
     public function index(Request $request)
     {
         try {
-            $search = $request->search;
-            $sede_id = $request->sede_id;
-            $responsable_id = $request->responsable_id;
-            $coordinador_id = $request->coordinador_id;
+            $search = $request->filled('search') ? $request->search : ($request->filled('q') ? $request->q : null);
+            $sede_id = $request->filled('sede_id') && $request->sede_id !== 'todas' && $request->sede_id !== 'all' ? $request->sede_id : null;
+            $responsable_id = $request->filled('responsable_id') && $request->responsable_id !== 'todos' && $request->responsable_id !== 'all' ? $request->responsable_id : null;
+            $coordinador_id = $request->filled('coordinador_id') && $request->coordinador_id !== 'todos' && $request->coordinador_id !== 'all' ? $request->coordinador_id : null;
             $perPage = $request->input('per_page', 100);
 
             $inventarios = $this->listarUseCase->execute($search, $sede_id, $responsable_id, $coordinador_id, $perPage);
@@ -253,6 +255,82 @@ class CpInventarioController extends Controller
             return ApiResponse::success(null, 'Inventario eliminado exitosamente');
         } catch (\Exception $e) {
             return ApiResponse::error('Error al eliminar inventario: ' . $e->getMessage(), 500);
+        }
+    }
+
+    #[OA\Get(
+        path: '/api/inventario/exportar-excel',
+        tags: ['Inventario'],
+        summary: 'Exportar inventario a Excel con filtros',
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'sede_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'responsable_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'coordinador_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'search', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'format', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['stream', 'url'])),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Archivo Excel generado')
+        ]
+    )]
+    public function exportExcel(Request $request, ExportarInventarioExcelUseCase $useCase)
+    {
+        try {
+            $search = $request->filled('search') ? $request->search : ($request->filled('q') ? $request->q : null);
+            $sede_id = $request->filled('sede_id') && $request->sede_id !== 'todas' && $request->sede_id !== 'all' ? $request->sede_id : null;
+            $responsable_id = $request->filled('responsable_id') && $request->responsable_id !== 'todos' && $request->responsable_id !== 'all' ? $request->responsable_id : null;
+            $coordinador_id = $request->filled('coordinador_id') && $request->coordinador_id !== 'todos' && $request->coordinador_id !== 'all' ? $request->coordinador_id : null;
+            $format = $request->query('format', 'stream');
+
+            $result = $useCase->execute($search, $sede_id, $responsable_id, $coordinador_id, $format);
+
+            if (is_array($result) && isset($result['file_url'])) {
+                return ApiResponse::success($result, 'Archivo Excel generado con éxito');
+            }
+
+            return $result;
+        } catch (\Exception $e) {
+            \Log::error('Error al exportar inventario a Excel: ' . $e->getMessage());
+            return ApiResponse::error('Error al exportar a Excel: ' . $e->getMessage(), 500);
+        }
+    }
+
+    #[OA\Get(
+        path: '/api/inventario/exportar-pdf',
+        tags: ['Inventario'],
+        summary: 'Exportar inventario a PDF con filtros',
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'sede_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'responsable_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'coordinador_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'search', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'format', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['stream', 'url'])),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Archivo PDF generado')
+        ]
+    )]
+    public function exportPdf(Request $request, ExportarInventarioPdfUseCase $useCase)
+    {
+        try {
+            $search = $request->filled('search') ? $request->search : ($request->filled('q') ? $request->q : null);
+            $sede_id = $request->filled('sede_id') && $request->sede_id !== 'todas' && $request->sede_id !== 'all' ? $request->sede_id : null;
+            $responsable_id = $request->filled('responsable_id') && $request->responsable_id !== 'todos' && $request->responsable_id !== 'all' ? $request->responsable_id : null;
+            $coordinador_id = $request->filled('coordinador_id') && $request->coordinador_id !== 'todos' && $request->coordinador_id !== 'all' ? $request->coordinador_id : null;
+            $format = $request->query('format', 'stream');
+
+            $result = $useCase->execute($search, $sede_id, $responsable_id, $coordinador_id, $format);
+
+            if (is_array($result) && isset($result['file_url'])) {
+                return ApiResponse::success($result, 'Archivo PDF generado con éxito');
+            }
+
+            return $result;
+        } catch (\Exception $e) {
+            \Log::error('Error al exportar inventario a PDF: ' . $e->getMessage());
+            return ApiResponse::error('Error al exportar a PDF: ' . $e->getMessage(), 500);
         }
     }
 }
