@@ -125,7 +125,6 @@ class CpPedidoController extends Controller
     )]
     public function store(Request $request)
     {
-        $this->permissionService->authorize('cp_pedido.crear');
         $validated = $request->validate([
             'proceso_solicitante' => 'required|exists:dependencias_sedes,id',
             'tipo_solicitud' => 'required|exists:cp_tipo_solicitud,id',
@@ -141,6 +140,22 @@ class CpPedidoController extends Controller
             'items.*.productos_id' => 'nullable|exists:cp_productos,id',
             'items.*.referencia_items' => 'nullable|string',
         ]);
+
+        $user = auth('api')->user() ?? auth()->user();
+        if (!$user) {
+            abort(401, 'Unauthenticated.');
+        }
+
+        $tipoSolicitud = \App\Models\CpTipoSolicitud::find($validated['tipo_solicitud']);
+        $esPrioritario = $tipoSolicitud && stripos($tipoSolicitud->nombre, 'prioritari') !== false;
+
+        if ($esPrioritario) {
+            if (!$this->permissionService->canCreatePriorityOrder($user) && !$this->permissionService->check($user, 'cp_pedido.crear')) {
+                abort(403, 'No tienes permisos para realizar pedidos prioritarios. Esta opción está reservada para coordinadores y personal autorizado.');
+            }
+        } else {
+            $this->permissionService->authorize('cp_pedido.crear');
+        }
 
         if (!$request->hasFile('elaborado_por_firma') && !$request->boolean('use_stored_signature')) {
             return response()->json(['error' => 'Debe proporcionar una firma o usar la guardada.'], 400);

@@ -25,8 +25,23 @@ class PermissionService
             return false;
         }
 
-        // Check if the role has the permission
+    // Check if the role has the permission
         return $user->rol->permisos->contains('nombre', $permissionName);
+    }
+
+    /**
+     * Valida si el usuario puede crear pedidos prioritarios (coordinadores o quienes tengan el permiso).
+     *
+     * @param Usuario $user
+     * @return bool
+     */
+    public function canCreatePriorityOrder(Usuario $user): bool
+    {
+        if (method_exists($user, 'isCoordinador') && $user->isCoordinador()) {
+            return true;
+        }
+
+        return $this->check($user, 'cp_pedido.realizar_pedido_prioritario');
     }
 
     /**

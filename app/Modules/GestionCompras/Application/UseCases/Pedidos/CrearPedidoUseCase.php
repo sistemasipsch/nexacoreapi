@@ -23,15 +23,16 @@ class CrearPedidoUseCase
 
         try {
             $tipoSolicitud = \App\Models\CpTipoSolicitud::find($data['tipo_solicitud']);
-            $esPrioritario = $tipoSolicitud && strtolower($tipoSolicitud->nombre) === 'prioritario';
+            $esPrioritario = $tipoSolicitud && stripos($tipoSolicitud->nombre, 'prioritari') !== false;
 
             if ($esPrioritario) {
                 $permissionService = app(PermissionService::class);
-                if (!$permissionService->check($user, 'cp_pedido.realizar_pedido_prioritario')) {
-                    throw new Exception('No tienes permisos para realizar un pedido prioritario.');
+                if (!$permissionService->canCreatePriorityOrder($user)) {
+                    throw new Exception('No tienes permisos para realizar un pedido prioritario. Esta opción está reservada para coordinadores y usuarios autorizados.');
                 }
+                // Los pedidos prioritarios pueden realizarse a cualquier hora (sin restricción de horario hábil)
             } else {
-                // Validación de horario delegada al servicio de dominio
+                // Validación de horario delegada al servicio de dominio para pedidos regulares
                 app(\App\Modules\GestionCompras\Domain\Services\ValidarHorarioPedidoService::class)->validar();
             }
 

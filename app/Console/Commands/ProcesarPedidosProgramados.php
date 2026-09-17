@@ -60,12 +60,12 @@ class ProcesarPedidosProgramados extends Command
                 $lastConsecutivo = CpPedido::max('consecutivo');
                 $nextConsecutivo = $lastConsecutivo ? $lastConsecutivo + 1 : 1;
                 
-                $rutaFirma = str_replace(url('/'), '', $pedidoProgramado->firma_programador);
-                $rutaFirma = ltrim($rutaFirma, '/');
-                
-                // Algunos entornos retornan solo el path relativo, limpiamos storage/ si viene repetido
-                if (!str_starts_with($rutaFirma, 'storage/')) {
-                    $rutaFirma = 'storage/' . $rutaFirma;
+                $rawFirma = $pedidoProgramado->getRawOriginal('firma_programador') ?? $creador?->firma_digital;
+                $rutaFirma = null;
+                if ($rawFirma) {
+                    $parsedPath = parse_url($rawFirma, PHP_URL_PATH) ?? $rawFirma;
+                    $cleanPath = ltrim(preg_replace('#^/?(storage/)+#', '', $parsedPath), '/');
+                    $rutaFirma = 'storage/' . $cleanPath;
                 }
 
                 $pedidoReal = CpPedido::create([
@@ -76,7 +76,7 @@ class ProcesarPedidosProgramados extends Command
                     'consecutivo' => $nextConsecutivo,
                     'observacion' => $datosReales['observacion'] ?? null,
                     'sede_id' => $datosReales['sede_id'] ?? null,
-                    'elaborado_por' => $pedidoProgramado->creado_por,
+                    'elaborado_por' => $datosReales['elaborado_por'] ?? $pedidoProgramado->creado_por,
                     'elaborado_por_firma' => $rutaFirma,
                     'creador_por' => $pedidoProgramado->creado_por,
                     'pedido_visto' => 0,

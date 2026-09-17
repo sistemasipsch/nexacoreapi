@@ -80,20 +80,16 @@ trait AsignarHorarioHabilTrait
 
             $horaActual = $horaActualContexto->format('H:i:s');
 
-            if ($horaActual < '07:30:00') {
-                // Antes de la primera ventana
-                return $fecha->setTime(7, 30, 0)->format('Y-m-d H:i:s');
-            } elseif ($horaActual >= '07:30:00' && $horaActual <= '08:30:00') {
-                // Dentro de la primera ventana
-                return $fecha->setTimeFromTimeString($horaActual)->format('Y-m-d H:i:s');
-            } elseif ($horaActual > '08:30:00' && $horaActual < '14:00:00') {
-                // Entre ventanas → próxima ventana de la tarde
+            if ($horaActual < '14:00:00') {
+                // Cualquier pedido programado en la mañana de un día hábil (antes de las 14:00)
+                // se programa automáticamente para la tarde de ese mismo día a las 2:00 PM (14:00:00),
+                // cumpliendo con el horario establecido de la tarde (2:00 PM - 3:00 PM).
                 return $fecha->setTime(14, 0, 0)->format('Y-m-d H:i:s');
             } elseif ($horaActual >= '14:00:00' && $horaActual <= '15:00:00') {
-                // Dentro de la segunda ventana
+                // Dentro de la ventana de la tarde: usar la hora actual para ejecución inmediata por el cron
                 return $fecha->setTimeFromTimeString($horaActual)->format('Y-m-d H:i:s');
             } else {
-                // Pasó ambas ventanas → siguiente día hábil
+                // Pasó ambas ventanas del día → avanzar al siguiente día hábil
                 $fecha->addDay();
                 $esHoy = false;
                 continue;

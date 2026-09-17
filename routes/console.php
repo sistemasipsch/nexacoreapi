@@ -12,7 +12,7 @@ Artisan::command('inspire', function () {
 // Se usa la versión PHP para compatibilidad con Hostinger (sin exec)
 Schedule::command('db:backup-php')->daily();
 
-// Programación para procesar los pedidos programados (ahora por minuto para mayor precisión de datetime)
-Schedule::command('pedidos:procesar-programados')->everyMinute();
+// Programación para procesar los pedidos programados (por minuto con prevención de solapamiento)
+Schedule::command('pedidos:procesar-programados')->everyMinute()->withoutOverlapping();
 Schedule::command('monitor:microservice')->everyFiveMinutes();
 Schedule::command('monitor:sitrad')->everyFiveMinutes();

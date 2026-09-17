@@ -118,4 +118,19 @@ class Usuario extends Authenticatable implements JWTSubject
     {
         return $this->belongsTo(Sede::class, 'sede_id');
     }
+
+    /**
+     * Determina si el usuario tiene rol de coordinador o rol superior con facultades equivalentes.
+     */
+    public function isCoordinador(): bool
+    {
+        if (!$this->relationLoaded('rol')) {
+            $this->load('rol');
+        }
+        $rolNombre = mb_strtolower($this->rol?->nombre ?? '');
+        return str_contains($rolNombre, 'coordinad')
+            || str_contains($rolNombre, 'coordinac')
+            || str_contains($rolNombre, 'administrador')
+            || str_contains($rolNombre, 'gerente');
+    }
 }
