@@ -174,6 +174,7 @@ class ActaDevolucionController extends Controller
                 'observaciones' => $acta->observaciones,
                 'firma_entrega' => $acta->firma_entrega_url,
                 'firma_recibe' => $acta->firma_recibe_url,
+                'firmas_corregidas' => in_array((int)$acta->id, [4, 5]),
                 'entrega' => $acta->entrega ? [
                     'id' => $acta->entrega->id,
                     'fecha_entrega' => $acta->entrega->fecha_entrega,

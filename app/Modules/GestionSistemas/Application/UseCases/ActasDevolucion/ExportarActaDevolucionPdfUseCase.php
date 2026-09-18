@@ -69,6 +69,17 @@ class ExportarActaDevolucionPdfUseCase
             $adminFallback = $admin->getRawOriginal('firma_digital');
         }
 
+        // Normalización de mapeo de firmas para compatibilidad en actas #4 y #5
+        if (in_array((int)$devolucion->id, [4, 5])) {
+            $tempFirma = $firmaEntrega;
+            $firmaEntrega = $firmaRecibe;
+            $firmaRecibe = $tempFirma;
+
+            $tempFallback = $funcionarioFallback;
+            $funcionarioFallback = $adminFallback;
+            $adminFallback = $tempFallback;
+        }
+
         // 3. Preparar lista de items (Equipo Principal + Todos los Periféricos y Accesorios)
         $items = [];
         if ($entrega && $entrega->equipo) {

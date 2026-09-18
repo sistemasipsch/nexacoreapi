@@ -24,14 +24,38 @@ class PcDevuelto extends Model
 
     protected $appends = ['firma_entrega_url', 'firma_recibe_url'];
 
+    public function getFirmaEntregaAttribute($value): ?string
+    {
+        if (in_array((int)$this->id, [4, 5])) {
+            return $this->attributes['firma_recibe'] ?? $value;
+        }
+        return $value;
+    }
+
+    public function getFirmaRecibeAttribute($value): ?string
+    {
+        if (in_array((int)$this->id, [4, 5])) {
+            return $this->attributes['firma_entrega'] ?? $value;
+        }
+        return $value;
+    }
+
     public function getFirmaEntregaUrlAttribute(): ?string
     {
+        if (in_array((int)$this->id, [4, 5])) {
+            $raw = $this->getRawOriginal('firma_recibe') ?? $this->attributes['firma_recibe'] ?? null;
+            return $this->formatFirmaUrl($raw);
+        }
         $raw = $this->getRawOriginal('firma_entrega') ?? $this->attributes['firma_entrega'] ?? null;
         return $this->formatFirmaUrl($raw);
     }
 
     public function getFirmaRecibeUrlAttribute(): ?string
     {
+        if (in_array((int)$this->id, [4, 5])) {
+            $raw = $this->getRawOriginal('firma_entrega') ?? $this->attributes['firma_entrega'] ?? null;
+            return $this->formatFirmaUrl($raw);
+        }
         $raw = $this->getRawOriginal('firma_recibe') ?? $this->attributes['firma_recibe'] ?? null;
         return $this->formatFirmaUrl($raw);
     }
