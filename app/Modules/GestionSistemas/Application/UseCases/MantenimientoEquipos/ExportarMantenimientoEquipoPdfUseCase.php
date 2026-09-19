@@ -128,8 +128,8 @@ class ExportarMantenimientoEquipoPdfUseCase
             $drawing->setPath($fullPath);
             $drawing->setCoordinates($cell);
 
-            // Altura fija de la firma en la celda
-            $imageHeight = 30;
+            // Altura de la firma en la celda
+            $imageHeight = 50;
             $drawing->setHeight($imageHeight);
 
             // Calcular el ancho escalado de la imagen para centrado horizontal
@@ -144,8 +144,8 @@ class ExportarMantenimientoEquipoPdfUseCase
             // Centrado horizontal dentro del rango de celdas fusionadas
             $offsetX = max(0, (int)(($mergedWidthPx - $scaledWidth) / 2));
 
-            // Centrado vertical: row 11 tiene 78.75pt ≈ 105px; imagen de 30px → offset ≈ 37px
-            $offsetY = 37;
+            // Centrado vertical: row 11 tiene 78.75pt ≈ 105px; imagen de 50px → offset ≈ 27px
+            $offsetY = 27;
 
             $drawing->setOffsetX($offsetX);
             $drawing->setOffsetY($offsetY);
