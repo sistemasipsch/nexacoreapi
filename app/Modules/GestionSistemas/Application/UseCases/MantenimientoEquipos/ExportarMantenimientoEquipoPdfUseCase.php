@@ -117,15 +117,38 @@ class ExportarMantenimientoEquipoPdfUseCase
         }
     }
 
-    private function insertarFirma($sheet, $path, $cell)
+    private function insertarFirma($sheet, $path, $cell, int $mergedWidthPx = 114)
     {
         if ($path && Storage::disk('public')->exists($path)) {
             $drawing = new Drawing();
             $drawing->setName('Firma');
             $drawing->setDescription('Firma');
-            $drawing->setPath(storage_path('app/public/' . $path));
+
+            $fullPath = storage_path('app/public/' . $path);
+            $drawing->setPath($fullPath);
             $drawing->setCoordinates($cell);
-            $drawing->setHeight(30); // Ajustar según el alto de la fila/celda en la plantilla
+
+            // Altura fija de la firma en la celda
+            $imageHeight = 30;
+            $drawing->setHeight($imageHeight);
+
+            // Calcular el ancho escalado de la imagen para centrado horizontal
+            $scaledWidth = $imageHeight * 3; // fallback: proporción 3:1
+            if (file_exists($fullPath)) {
+                $size = @getimagesize($fullPath);
+                if ($size && $size[1] > 0) {
+                    $scaledWidth = (int)(($size[0] / $size[1]) * $imageHeight);
+                }
+            }
+
+            // Centrado horizontal dentro del rango de celdas fusionadas
+            $offsetX = max(0, (int)(($mergedWidthPx - $scaledWidth) / 2));
+
+            // Centrado vertical: row 11 tiene 78.75pt ≈ 105px; imagen de 30px → offset ≈ 37px
+            $offsetY = 37;
+
+            $drawing->setOffsetX($offsetX);
+            $drawing->setOffsetY($offsetY);
             $drawing->setWorksheet($sheet);
         }
     }
