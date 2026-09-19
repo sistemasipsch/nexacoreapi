@@ -32,8 +32,17 @@ class ActualizarItemsPedidoUseCase
                 ->first();
 
             if ($currentItem) {
+                // Bloqueo: si ya estaba entregado, no permitir revertir
+                if ($currentItem->comprado && !$isComprado) {
+                    continue;
+                }
+
                 $updateData = ['comprado' => $isComprado ? 1 : 0];
-                if ($isComprado) {
+                if ($isComprado && !$currentItem->comprado) {
+                    // Guardar la fecha exacta del momento de la confirmación
+                    $updateData['fecha_entregado'] = now();
+                } elseif ($isComprado) {
+                    // Mantener la fecha que ya tenía
                     $updateData['fecha_entregado'] = $currentItem->fecha_entregado ?? now();
                 } else {
                     $updateData['fecha_entregado'] = null;
