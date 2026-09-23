@@ -31,7 +31,7 @@ class CpInventarioExport
         $spreadsheet = $this->buildExcelSpreadsheet($items, $sedeNombre, $extraInfo);
 
         $safeSede = $sedeNombre ? Str::slug($sedeNombre, '_') : 'TODAS_LAS_SEDES';
-        $filename = 'inventario_' . $safeSede . '_' . Carbon::now()->format('Y_m_d_His') . '.xlsx';
+        $filename = 'inventario_' . $safeSede . '_' . Carbon::now('America/Bogota')->format('Y_m_d_His') . '.xlsx';
 
         if ($returnUrl) {
             $exportDir = storage_path('app/public/exports');
@@ -71,7 +71,7 @@ class CpInventarioExport
         [$spreadsheet, $highestRow] = $this->buildPdfSpreadsheet($items, $sedeNombre, $extraInfo);
 
         $safeSede = $sedeNombre ? Str::slug($sedeNombre, '_') : 'TODAS_LAS_SEDES';
-        $filename = 'inventario_' . $safeSede . '_' . Carbon::now()->format('Y_m_d_His') . '.pdf';
+        $filename = 'inventario_' . $safeSede . '_' . Carbon::now('America/Bogota')->format('Y_m_d_His') . '.pdf';
 
         $tempExcelPath = tempnam(sys_get_temp_dir(), 'inv_pdf_excel_') . '.xlsx';
         $writer = new Xlsx($spreadsheet);
@@ -139,7 +139,7 @@ class CpInventarioExport
 
         // 2. Información del Reporte y Filtros (Fila 3)
         $sedeLabel = $sedeNombre ? mb_strtoupper($sedeNombre, 'UTF-8') : 'TODAS LAS SEDES';
-        $subtitulo = "SEDE: {$sedeLabel}   |   GENERADO EL: " . Carbon::now()->format('d/m/Y h:i A') . "   |   TOTAL ÍTEMS: " . count($items);
+        $subtitulo = "SEDE: {$sedeLabel}   |   GENERADO EL: " . Carbon::now('America/Bogota')->format('d/m/Y h:i A') . "   |   TOTAL ÍTEMS: " . count($items);
         if (!empty($extraInfo)) {
             $subtitulo .= "   |   FILTROS: {$extraInfo}";
         }
@@ -311,7 +311,7 @@ class CpInventarioExport
 
         // Subtítulo con sede y metadatos (Fila 3)
         $sedeLabel = $sedeNombre ? mb_strtoupper($sedeNombre, 'UTF-8') : 'TODAS LAS SEDES';
-        $subtitulo = "SEDE: {$sedeLabel}   |   GENERADO: " . Carbon::now()->format('d/m/Y h:i A') . "   |   TOTAL: " . count($items);
+        $subtitulo = "SEDE: {$sedeLabel}   |   GENERADO: " . Carbon::now('America/Bogota')->format('d/m/Y h:i A') . "   |   TOTAL: " . count($items);
         if (!empty($extraInfo)) {
             $subtitulo .= "   |   FILTROS: {$extraInfo}";
         }
