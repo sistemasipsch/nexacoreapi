@@ -66,33 +66,41 @@ class PedidosPrioritariosYProgramadosTest extends TestCase
     }
 
     /**
-     * Valida canCreatePriorityOrder para coordinadores y usuarios con permiso explícito.
+     * Valida que canCreatePriorityOrder sea EXCLUSIVO para usuarios que tengan habilitado
+     * el permiso 'cp_pedido.realizar_pedido_prioritario'.
      */
     public function test_can_create_priority_order(): void
     {
         $service = app(PermissionService::class);
 
-        // Caso 1: Coordinador (sin permiso explícito necesario)
-        $coordUser = new Usuario();
-        $rolCoord = new Rol(['nombre' => 'COORDINADOR']);
-        $rolCoord->setRelation('permisos', collect([]));
-        $coordUser->setRelation('rol', $rolCoord);
-        $this->assertTrue($service->canCreatePriorityOrder($coordUser));
+        // Caso 1: Coordinador SIN el permiso cp_pedido.realizar_pedido_prioritario -> NO debe poder
+        $coordSinPermiso = new Usuario();
+        $rolCoordSinPermiso = new Rol(['nombre' => 'COORDINADOR']);
+        $rolCoordSinPermiso->setRelation('permisos', collect([]));
+        $coordSinPermiso->setRelation('rol', $rolCoordSinPermiso);
+        $this->assertFalse($service->canCreatePriorityOrder($coordSinPermiso), 'Coordinador sin permiso no debe poder crear pedidos prioritarios');
 
-        // Caso 2: Auxiliar con el permiso cp_pedido.realizar_pedido_prioritario
+        // Caso 2: Coordinador CON el permiso cp_pedido.realizar_pedido_prioritario -> SÍ debe poder
         $permisoPrioritario = new Permiso(['nombre' => 'cp_pedido.realizar_pedido_prioritario']);
+        $coordConPermiso = new Usuario();
+        $rolCoordConPermiso = new Rol(['nombre' => 'COORDINADOR']);
+        $rolCoordConPermiso->setRelation('permisos', collect([$permisoPrioritario]));
+        $coordConPermiso->setRelation('rol', $rolCoordConPermiso);
+        $this->assertTrue($service->canCreatePriorityOrder($coordConPermiso), 'Coordinador con permiso sí debe poder crear pedidos prioritarios');
+
+        // Caso 3: Auxiliar CON el permiso cp_pedido.realizar_pedido_prioritario -> SÍ debe poder
         $rolConPermiso = new Rol(['nombre' => 'AUXILIAR ESPECIAL']);
         $rolConPermiso->setRelation('permisos', collect([$permisoPrioritario]));
         $userConPermiso = new Usuario();
         $userConPermiso->setRelation('rol', $rolConPermiso);
-        $this->assertTrue($service->canCreatePriorityOrder($userConPermiso));
+        $this->assertTrue($service->canCreatePriorityOrder($userConPermiso), 'Usuario con permiso sí debe poder crear pedidos prioritarios');
 
-        // Caso 3: Auxiliar sin permiso
+        // Caso 4: Auxiliar SIN el permiso -> NO debe poder (solo recurrentes)
         $rolSinPermiso = new Rol(['nombre' => 'AUXILIAR REGULAR']);
         $rolSinPermiso->setRelation('permisos', collect([]));
         $userSinPermiso = new Usuario();
         $userSinPermiso->setRelation('rol', $rolSinPermiso);
-        $this->assertFalse($service->canCreatePriorityOrder($userSinPermiso));
+        $this->assertFalse($service->canCreatePriorityOrder($userSinPermiso), 'Usuario sin permiso no debe poder crear pedidos prioritarios');
     }
 
     /**

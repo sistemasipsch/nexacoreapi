@@ -30,17 +30,13 @@ class PermissionService
     }
 
     /**
-     * Valida si el usuario puede crear pedidos prioritarios (coordinadores o quienes tengan el permiso).
+     * Valida si el usuario puede crear pedidos prioritarios (únicamente quienes tengan el permiso cp_pedido.realizar_pedido_prioritario).
      *
      * @param Usuario $user
      * @return bool
      */
     public function canCreatePriorityOrder(Usuario $user): bool
     {
-        if (method_exists($user, 'isCoordinador') && $user->isCoordinador()) {
-            return true;
-        }
-
         return $this->check($user, 'cp_pedido.realizar_pedido_prioritario');
     }
 

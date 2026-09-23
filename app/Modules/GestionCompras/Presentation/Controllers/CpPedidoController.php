@@ -149,12 +149,12 @@ class CpPedidoController extends Controller
         $tipoSolicitud = \App\Models\CpTipoSolicitud::find($validated['tipo_solicitud']);
         $esPrioritario = $tipoSolicitud && stripos($tipoSolicitud->nombre, 'prioritari') !== false;
 
+        $this->permissionService->authorize('cp_pedido.crear');
+
         if ($esPrioritario) {
-            if (!$this->permissionService->canCreatePriorityOrder($user) && !$this->permissionService->check($user, 'cp_pedido.crear')) {
-                abort(403, 'No tienes permisos para realizar pedidos prioritarios. Esta opción está reservada para coordinadores y personal autorizado.');
+            if (!$this->permissionService->canCreatePriorityOrder($user)) {
+                abort(403, 'No tienes permisos para realizar pedidos prioritarios. Solo las personas con el permiso cp_pedido.realizar_pedido_prioritario habilitado pueden hacer pedidos prioritarios, el resto solo puede hacer pedidos recurrentes.');
             }
-        } else {
-            $this->permissionService->authorize('cp_pedido.crear');
         }
 
         if (!$request->hasFile('elaborado_por_firma') && !$request->boolean('use_stored_signature')) {

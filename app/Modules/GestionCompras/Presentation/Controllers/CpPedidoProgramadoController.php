@@ -76,6 +76,20 @@ class CpPedidoProgramadoController extends Controller
             'use_stored_signature' => 'nullable|boolean'
         ]);
 
+        $tipoSolicitudId = $request->input('datos_pedido.tipo_solicitud');
+        if ($tipoSolicitudId) {
+            $tipoSolicitud = \App\Models\CpTipoSolicitud::find($tipoSolicitudId);
+            $esPrioritario = $tipoSolicitud && stripos($tipoSolicitud->nombre, 'prioritari') !== false;
+            if ($esPrioritario) {
+                $user = auth('api')->user() ?? auth()->user() ?? \App\Models\Usuario::find($request->input('creado_por'));
+                if (!$user || !app(\App\Services\PermissionService::class)->canCreatePriorityOrder($user)) {
+                    return response()->json([
+                        'error' => 'No tienes permisos para realizar pedidos prioritarios. Solo las personas con el permiso cp_pedido.realizar_pedido_prioritario habilitado pueden hacer pedidos prioritarios, el resto solo puede hacer pedidos recurrentes.'
+                    ], 403);
+                }
+            }
+        }
+
         $dto = new ProgramarPedidoDTO(
             $request->input('datos_pedido'),
             $request->input('fecha_programada'),
@@ -185,6 +199,20 @@ class CpPedidoProgramadoController extends Controller
             'firma_file' => 'nullable|file|image|mimes:jpeg,png,jpg,svg|max:2048',
             'use_stored_signature' => 'nullable|boolean'
         ]);
+
+        $tipoSolicitudId = $request->input('datos_pedido.tipo_solicitud');
+        if ($tipoSolicitudId) {
+            $tipoSolicitud = \App\Models\CpTipoSolicitud::find($tipoSolicitudId);
+            $esPrioritario = $tipoSolicitud && stripos($tipoSolicitud->nombre, 'prioritari') !== false;
+            if ($esPrioritario) {
+                $user = auth('api')->user() ?? auth()->user();
+                if (!$user || !app(\App\Services\PermissionService::class)->canCreatePriorityOrder($user)) {
+                    return response()->json([
+                        'error' => 'No tienes permisos para realizar pedidos prioritarios. Solo las personas con el permiso cp_pedido.realizar_pedido_prioritario habilitado pueden hacer pedidos prioritarios, el resto solo puede hacer pedidos recurrentes.'
+                    ], 403);
+                }
+            }
+        }
 
         $dto = new ActualizarPedidoProgramadoDTO(
             $id,

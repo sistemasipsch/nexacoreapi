@@ -28,7 +28,7 @@ class CrearPedidoUseCase
             if ($esPrioritario) {
                 $permissionService = app(PermissionService::class);
                 if (!$permissionService->canCreatePriorityOrder($user)) {
-                    throw new Exception('No tienes permisos para realizar un pedido prioritario. Esta opción está reservada para coordinadores y usuarios autorizados.');
+                    throw new Exception('No tienes permisos para realizar un pedido prioritario. Solo las personas con el permiso cp_pedido.realizar_pedido_prioritario habilitado pueden hacer pedidos prioritarios, el resto solo puede hacer pedidos recurrentes.');
                 }
                 // Los pedidos prioritarios pueden realizarse a cualquier hora (sin restricción de horario hábil)
             } else {
