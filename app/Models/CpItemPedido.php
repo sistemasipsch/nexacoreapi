@@ -12,6 +12,10 @@ class CpItemPedido extends Model
     protected $table = 'cp_items_pedidos';
     public $timestamps = false;
 
+    protected $casts = [
+        'fecha_entregado' => 'datetime',
+    ];
+
     protected $fillable = [
         'nombre',
         'cantidad',

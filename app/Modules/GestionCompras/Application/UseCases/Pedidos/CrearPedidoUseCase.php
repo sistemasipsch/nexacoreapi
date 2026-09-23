@@ -49,7 +49,7 @@ class CrearPedidoUseCase
             /** @var CpPedido $pedido */
             $pedido = CpPedido::create([
                 'estado_compras' => 'pendiente',
-                'fecha_solicitud' => now('UTC'),
+                'fecha_solicitud' => now(),
                 'proceso_solicitante' => $data['proceso_solicitante'],
                 'tipo_solicitud' => $data['tipo_solicitud'],
                 'consecutivo' => $nextConsecutivo,

@@ -35,7 +35,7 @@ class AprobarComprasPedidoUseCase
             'proceso_compra' => $user->id,
             'proceso_compra_firma' => 'storage/' . $path,
             'motivo_aprobacion_compras' => $data['motivo_aprobacion_compras'] ?? null,
-            'fecha_compra' => now('UTC'),
+            'fecha_compra' => now(),
         ]);
 
         if (isset($data['items_comprados']) && is_array($data['items_comprados'])) {

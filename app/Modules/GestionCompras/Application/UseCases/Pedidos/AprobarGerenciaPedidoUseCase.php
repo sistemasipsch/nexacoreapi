@@ -34,7 +34,7 @@ class AprobarGerenciaPedidoUseCase
             'estado_gerencia' => 'aprobado',
             'responsable_aprobacion' => $user->id,
             'responsable_aprobacion_firma' => 'storage/' . $path,
-            'fecha_gerencia' => now('UTC'),
+            'fecha_gerencia' => now(),
             'motivo_aprobacion_gerencia' => $data['motivo_aprobacion_gerencia'] ?? null,
         ]);
 

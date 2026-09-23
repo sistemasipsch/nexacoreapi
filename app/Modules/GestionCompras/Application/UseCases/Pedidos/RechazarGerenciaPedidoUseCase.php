@@ -28,7 +28,7 @@ class RechazarGerenciaPedidoUseCase
             'estado_gerencia' => 'rechazado',
             'responsable_aprobacion' => $user->id,
             'motivo_rechazado_gerencia' => $motivo,
-            'fecha_gerencia' => now('UTC'),
+            'fecha_gerencia' => now(),
         ]);
 
         $this->sendGerenciaRejectedNotification($pedido, $motivo);

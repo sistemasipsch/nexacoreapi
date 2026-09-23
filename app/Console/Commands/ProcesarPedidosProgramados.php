@@ -70,7 +70,7 @@ class ProcesarPedidosProgramados extends Command
 
                 $pedidoReal = CpPedido::create([
                     'estado_compras' => 'pendiente',
-                    'fecha_solicitud' => now('UTC'),
+                    'fecha_solicitud' => now(),
                     'proceso_solicitante' => $datosReales['proceso_solicitante'] ?? null,
                     'tipo_solicitud' => $datosReales['tipo_solicitud'] ?? null,
                     'consecutivo' => $nextConsecutivo,

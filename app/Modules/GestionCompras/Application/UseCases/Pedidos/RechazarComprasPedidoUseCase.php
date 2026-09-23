@@ -27,7 +27,7 @@ class RechazarComprasPedidoUseCase
         $pedido->update([
             'estado_compras' => 'rechazado',
             'motivo_rechazado_compras' => $motivo,
-            'fecha_compra' => now('UTC'),
+            'fecha_compra' => now(),
         ]);
 
         $this->sendOrderRejectedNotification($pedido, $motivo);
