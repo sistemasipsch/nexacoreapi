@@ -45,6 +45,10 @@ class ListarPedidosUseCase
             $query->where('estado_gerencia', $filters['estado_gerencia']);
         }
 
+        if (!empty($filters['sede_id'])) {
+            $query->where('sede_id', $filters['sede_id']);
+        }
+
         if ($this->permissionService->check($user, 'cp_pedido.listar.compras')) {
             return $query->get();
         } elseif ($this->permissionService->check($user, 'cp_pedido.listar.responsable')) {
