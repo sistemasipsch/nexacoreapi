@@ -69,6 +69,9 @@ class Usuario extends Authenticatable implements JWTSubject
         if (!$value) {
             return null;
         }
+        if (str_starts_with($value, 'http://') || str_starts_with($value, 'https://')) {
+            return $value;
+        }
         $path = ltrim(str_replace(['storage/', 'public/', 'api/'], '', $value), '/');
         return url('storage/' . $path);
     }

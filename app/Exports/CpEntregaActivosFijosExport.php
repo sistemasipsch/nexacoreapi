@@ -239,16 +239,17 @@ class CpEntregaActivosFijosExport
 
         // 3. Fila de Firmas (desplazada dinámicamente según filas insertadas)
         $sigRow = 20 + $extraRows;
-        $sheet->getRowDimension($sigRow)->setRowHeight(58);
+        $sheet->getRowDimension($sigRow)->setRowHeight(75);
         if ($extraRows > 0) {
             $sheet->getRowDimension(19 + $extraRows)->setRowHeight(8.25);
         }
 
         $nombreEntrega = $entrega->coordinador?->nombre ?? '';
+        $cedulaEntrega = $entrega->coordinador?->cedula ? " - C.C. {$entrega->coordinador->cedula}" : '';
         $nombreRecibe = $entrega->personal?->nombre ?? '';
         $cedulaRecibe = $entrega->personal?->cedula ? " - C.C. {$entrega->personal->cedula}" : '';
 
-        $labelEntrega = "NOMBRE Y FIRMA DE QUIEN ENTREGA" . ($nombreEntrega ? "\n{$nombreEntrega}" : '');
+        $labelEntrega = "NOMBRE Y FIRMA DE QUIEN ENTREGA" . ($nombreEntrega ? "\n{$nombreEntrega}{$cedulaEntrega}" : '');
         $labelRecibe = "NOMBRE Y FIRMA DE QUIEN RECIBE" . ($nombreRecibe ? "\n{$nombreRecibe}{$cedulaRecibe}" : '');
 
         $sheet->setCellValue("B" . ($sigRow + 1), $labelEntrega);
@@ -258,25 +259,13 @@ class CpEntregaActivosFijosExport
         $sheet->getRowDimension($sigRow + 1)->setRowHeight(20);
         $sheet->getRowDimension($sigRow + 2)->setRowHeight(18);
 
-        // Resolver firmas con fallbacks
-        $firmaEntrega = $entrega->getRawOriginal('firma_quien_entrega') 
-            ?? $entrega->coordinador?->getRawOriginal('firma') 
-            ?? $entrega->coordinador?->firma;
+        // Resolver firmas válidas con verificación física en disco y búsqueda por identidad
+        $firmaEntregaPath = $this->resolveFirmaForPersona($entrega->getRawOriginal('firma_quien_entrega'), $entrega->coordinador);
+        $firmaRecibePath  = $this->resolveFirmaForPersona($entrega->getRawOriginal('firma_quien_recibe'),  $entrega->personal);
 
-        if (empty($firmaEntrega)) {
-            $admin = Usuario::whereNotNull('firma_digital')->where('firma_digital', '!=', '')->first();
-            if ($admin) {
-                $firmaEntrega = $admin->getRawOriginal('firma_digital');
-            }
-        }
-
-        $firmaRecibe = $entrega->getRawOriginal('firma_quien_recibe') 
-            ?? $entrega->personal?->getRawOriginal('firma') 
-            ?? $entrega->personal?->firma;
-
-        // Insertar firmas en las celdas centrales de los rangos combinados (B..M -> H, N..U -> R)
-        $this->insertFirma($sheet, $firmaEntrega, "H{$sigRow}");
-        $this->insertFirma($sheet, $firmaRecibe, "R{$sigRow}");
+        // Insertar firmas en las celdas de los rangos combinados (B..M para Entrega, N..U para Recibe) centradas y ampliadas
+        $this->insertFirmaCentrada($sheet, $firmaEntregaPath, 'B', 'M', $sigRow, 65, 260);
+        $this->insertFirmaCentrada($sheet, $firmaRecibePath,  'N', 'U', $sigRow, 65, 260);
 
         // 4. Configuración de Página y Área de Impresión
         $highestRow = $sheet->getHighestRow();
@@ -298,6 +287,142 @@ class CpEntregaActivosFijosExport
         return [$spreadsheet, $entrega, $filenameBase];
     }
 
+    private function resolveFirmaForPersona(?string $actaFirmaPath, ?\App\Models\Personal $persona): ?string
+    {
+        // 1. Firma explícita guardada en el registro del acta
+        if (!empty($actaFirmaPath)) {
+            $path = $this->resolveImagePath($actaFirmaPath);
+            if ($path && file_exists($path)) {
+                return $path;
+            }
+        }
+
+        // 2. Firma registrada en el perfil de Personal
+        if ($persona) {
+            $rawPersonalFirma = $persona->getRawOriginal('firma') ?: $persona->firma;
+            if (!empty($rawPersonalFirma)) {
+                $path = $this->resolveImagePath($rawPersonalFirma);
+                if ($path && file_exists($path)) {
+                    return $path;
+                }
+            }
+
+            // 3. Firma digital en Usuario vinculada por número de documento / cédula
+            if (!empty($persona->cedula)) {
+                $usuario = Usuario::where('usuario', $persona->cedula)
+                    ->whereNotNull('firma_digital')
+                    ->where('firma_digital', '!=', '')
+                    ->first();
+
+                if ($usuario) {
+                    $rawUsuarioFirma = $usuario->getRawOriginal('firma_digital');
+                    $path = $this->resolveImagePath($rawUsuarioFirma);
+                    if ($path && file_exists($path)) {
+                        return $path;
+                    }
+                }
+            }
+
+            // 4. Firma digital en Usuario vinculada por nombre completo exacto
+            if (!empty($persona->nombre)) {
+                $usuario = Usuario::where('nombre_completo', $persona->nombre)
+                    ->whereNotNull('firma_digital')
+                    ->where('firma_digital', '!=', '')
+                    ->first();
+
+                if ($usuario) {
+                    $rawUsuarioFirma = $usuario->getRawOriginal('firma_digital');
+                    $path = $this->resolveImagePath($rawUsuarioFirma);
+                    if ($path && file_exists($path)) {
+                        return $path;
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function insertFirmaCentrada($sheet, ?string $realPath, string $startCol, string $endCol, int $row, int $targetHeight = 65, int $maxWidth = 260): void
+    {
+        if (!$realPath || !file_exists($realPath)) {
+            return;
+        }
+
+        try {
+            $imageInfo = @getimagesize($realPath);
+            if (!$imageInfo) {
+                return;
+            }
+
+            $origW = $imageInfo[0];
+            $origH = $imageInfo[1];
+            if ($origW <= 0 || $origH <= 0) {
+                return;
+            }
+
+            // Escala proporcional
+            $imgW = (int) round($origW * ($targetHeight / $origH));
+            $imgH = $targetHeight;
+            if ($imgW > $maxWidth) {
+                $imgW = $maxWidth;
+                $imgH = (int) round($origH * ($maxWidth / $origW));
+            }
+
+            // Construir lista de columnas en el rango
+            $cols = [];
+            $curr = $startCol;
+            while ($curr !== $endCol) {
+                $cols[] = $curr;
+                $curr++;
+            }
+            $cols[] = $endCol;
+
+            // Calcular ancho total del bloque y ancho de cada columna en píxeles
+            $totalBoxWidth = 0;
+            $colWidths = [];
+            foreach ($cols as $col) {
+                $cw = \PhpOffice\PhpSpreadsheet\Shared\Drawing::cellDimensionToPixels(
+                    $sheet->getColumnDimension($col)->getWidth(),
+                    new \PhpOffice\PhpSpreadsheet\Style\Font()
+                );
+                $colWidths[$col] = $cw;
+                $totalBoxWidth += $cw;
+            }
+
+            // Centrado horizontal
+            $targetOffset = max(0, (int) round(($totalBoxWidth - $imgW) / 2));
+            $accum = 0;
+            $anchorCol = $startCol;
+            $offsetX = 0;
+            foreach ($colWidths as $col => $cw) {
+                if ($targetOffset < $accum + $cw) {
+                    $anchorCol = $col;
+                    $offsetX = $targetOffset - $accum;
+                    break;
+                }
+                $accum += $cw;
+            }
+
+            // Centrado vertical: la fila tiene altura 75 pt => ~100 px a 96 DPI
+            $rowHeightPx = (int) round(75 * (96 / 72));
+            $offsetY = max(2, (int) round(($rowHeightPx - $imgH) / 2));
+
+            $drawing = new Drawing();
+            $drawing->setName('Firma');
+            $drawing->setDescription('Firma');
+            $drawing->setPath($realPath);
+            $drawing->setCoordinates("{$anchorCol}{$row}");
+            $drawing->setWidth($imgW);
+            $drawing->setHeight($imgH);
+            $drawing->setOffsetX($offsetX);
+            $drawing->setOffsetY($offsetY);
+            $drawing->setWorksheet($sheet);
+        } catch (\Throwable $e) {
+            // Continuar sin interrumpir la exportación si la imagen falla
+        }
+    }
+
     private function insertFirma($sheet, $path, string $cell): void
     {
         $realPath = $this->resolveImagePath($path);
@@ -317,7 +442,7 @@ class CpEntregaActivosFijosExport
             $drawing->setPath($realPath);
             $drawing->setCoordinates($cell);
             $drawing->setResizeProportional(true);
-            $drawing->setHeight(46);
+            $drawing->setHeight(65);
             $drawing->setOffsetX(0);
             $drawing->setOffsetY(4);
             $drawing->setWorksheet($sheet);
