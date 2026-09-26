@@ -10,6 +10,14 @@ Route::get('/ping', function () {
     ]);
 });
 
+Route::get('/ejecutar-migraciones-activos', function () {
+    \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+    return response()->json([
+        'status' => 'success',
+        'output' => \Illuminate\Support\Facades\Artisan::output()
+    ]);
+});
+
 // Serve storage files through API route
 Route::get('storage/{path}', function (string $path) {
     $cleanPath = ltrim(str_replace(['storage/', 'public/', 'api/'], '', $path), '/');
