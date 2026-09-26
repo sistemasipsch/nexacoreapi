@@ -23,6 +23,7 @@ Route::prefix('gestion-compras')->middleware('auth:api')->group(function () {
     Route::apiResource('cp-tipos-solicitud', \App\Modules\GestionCompras\Presentation\Controllers\CpTipoSolicitudController::class);
 
     // Entregas de Activos Fijos
+    Route::get('cp-entrega-activos-fijos/sede-responsable/{personalId}', [\App\Modules\GestionCompras\Presentation\Controllers\CpEntregaActivosFijosController::class, 'obtenerSedeResponsable']);
     Route::get('cp-entrega-activos-fijos/coordinadores', [\App\Modules\GestionCompras\Presentation\Controllers\CpEntregaActivosFijosController::class, 'coordinadores']);
     Route::get('cp-entrega-activos-fijos/personas', [\App\Modules\GestionCompras\Presentation\Controllers\CpEntregaActivosFijosController::class, 'personas']);
     Route::get('cp-entrega-activos-fijos/coordinador/{id}', [\App\Modules\GestionCompras\Presentation\Controllers\CpEntregaActivosFijosController::class, 'porCoordinador']);

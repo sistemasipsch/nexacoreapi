@@ -518,6 +518,80 @@ class CpEntregaActivosFijosController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Detecta y devuelve la sede, proceso y coordinador sugeridos para un responsable
+     */
+    public function obtenerSedeResponsable($personalId)
+    {
+        try {
+            $sedeId = null;
+            $procesoId = null;
+            $coordinadorId = null;
+
+            // 1. Buscar en actas de entrega previas del responsable
+            $entregaPrevia = CpEntregaActivosFijos::where('personal_id', $personalId)
+                ->orderBy('id', 'desc')
+                ->first();
+
+            if ($entregaPrevia) {
+                $sedeId = $entregaPrevia->sede_id;
+                $procesoId = $entregaPrevia->proceso_solicitante;
+                $coordinadorId = $entregaPrevia->coordinador_id;
+            }
+
+            // 2. Si aún no se determinó sede, buscar en inventario
+            if (!$sedeId) {
+                $items = \App\Models\Inventario::where('responsable_id', $personalId)->get();
+                if ($items->isNotEmpty()) {
+                    $item = $items->first();
+                    $sedeId = $item->sede_id;
+                    $procesoId = $item->proceso_id;
+                    $coordinadorId = $item->coordinador_id;
+
+                    // Si la descripción textual de dependencia indica una sede específica
+                    foreach ($items as $it) {
+                        $depText = strtoupper(($it->dependencia ?? '') . ' ' . ($it->ubicacion ?? ''));
+                        if (str_contains($depText, 'CAOBOS')) {
+                            $sedeId = 2;
+                            break;
+                        } elseif (str_contains($depText, 'PAMI')) {
+                            $sedeId = 3;
+                            break;
+                        } elseif (str_contains($depText, 'ARCHIVO')) {
+                            $sedeId = 6;
+                            break;
+                        } elseif (str_contains($depText, 'HOGAR')) {
+                            $sedeId = 5;
+                            break;
+                        } elseif (str_contains($depText, 'AVENIDA CERO') || str_contains($depText, 'CLINICAL')) {
+                            $sedeId = 7;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // 3. Fallback a SEDE PRINCIPAL si no se pudo determinar
+            if (!$sedeId) {
+                $sedeId = 1;
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'objeto' => [
+                    'sede_id' => (int)$sedeId,
+                    'proceso_solicitante' => $procesoId ? (int)$procesoId : null,
+                    'coordinador_id' => $coordinadorId ? (int)$coordinadorId : null,
+                ]
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'mensaje' => 'Error al obtener sede del responsable: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }
 
 
