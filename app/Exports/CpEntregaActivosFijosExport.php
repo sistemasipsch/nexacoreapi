@@ -285,7 +285,7 @@ class CpEntregaActivosFijosExport
 
         // 3. Fila de Firmas (desplazada dinámicamente según filas insertadas)
         $sigRow = 20 + $extraRows;
-        $sheet->getRowDimension($sigRow)->setRowHeight(75);
+        $sheet->getRowDimension($sigRow)->setRowHeight(58);
         if ($extraRows > 0) {
             $sheet->getRowDimension(19 + $extraRows)->setRowHeight(8.25);
         }
@@ -309,9 +309,9 @@ class CpEntregaActivosFijosExport
         $firmaEntregaPath = $this->resolveFirmaForPersona($entrega->getRawOriginal('firma_quien_entrega'), $entrega->coordinador);
         $firmaRecibePath  = $this->resolveFirmaForPersona($entrega->getRawOriginal('firma_quien_recibe'),  $entrega->personal);
 
-        // Insertar firmas en las celdas de los rangos combinados (B..M para Entrega, N..U para Recibe) centradas y ampliadas
-        $this->insertFirmaCentrada($sheet, $firmaEntregaPath, 'B', 'M', $sigRow, 65, 260);
-        $this->insertFirmaCentrada($sheet, $firmaRecibePath,  'N', 'U', $sigRow, 65, 260);
+        // Insertar firmas en las celdas centrales de los rangos combinados (B..M -> H, N..U -> R)
+        $this->insertFirma($sheet, $firmaEntregaPath, "H{$sigRow}");
+        $this->insertFirma($sheet, $firmaRecibePath,  "R{$sigRow}");
 
         // 4. Configuración de Página y Área de Impresión
         $highestRow = $sheet->getHighestRow();
@@ -344,16 +344,8 @@ class CpEntregaActivosFijosExport
             return null;
         }
 
-        // 2. Si el acta tiene una firma guardada explícita (archivo de firma)
-        if (!empty($actaFirmaPath) && $actaFirmaPath !== 'sin_firma') {
-            $path = $this->resolveImagePath($actaFirmaPath);
-            if ($path && file_exists($path)) {
-                return $path;
-            }
-        }
-
-        // 3. Si el acta no tiene firma guardada (null) y pertenece a personal, consultar firma oficial
-        if ($persona && empty($actaFirmaPath)) {
+        // 2. PRIORIDAD MÁXIMA: Firma oficial registrada en la tabla personal
+        if ($persona) {
             $rawPersonalFirma = $persona->getRawOriginal('firma') ?: $persona->firma;
             if (!empty($rawPersonalFirma)) {
                 $path = $this->resolveImagePath($rawPersonalFirma);
@@ -362,7 +354,7 @@ class CpEntregaActivosFijosExport
                 }
             }
 
-            // 4. Firma digital en Usuario vinculada por número de documento / cédula
+            // 3. Firma digital en Usuario vinculada por número de documento / cédula
             if (!empty($persona->cedula)) {
                 $usuario = Usuario::where('usuario', $persona->cedula)
                     ->whereNotNull('firma_digital')
@@ -378,7 +370,7 @@ class CpEntregaActivosFijosExport
                 }
             }
 
-            // 5. Firma digital en Usuario vinculada por nombre completo exacto
+            // 4. Firma digital en Usuario vinculada por nombre completo exacto
             if (!empty($persona->nombre)) {
                 $usuario = Usuario::where('nombre_completo', $persona->nombre)
                     ->whereNotNull('firma_digital')
@@ -395,10 +387,18 @@ class CpEntregaActivosFijosExport
             }
         }
 
+        // 5. PRIORIDAD SECUNDARIA: Firma guardada en el acta de entrega (si personal no tiene)
+        if (!empty($actaFirmaPath) && $actaFirmaPath !== 'sin_firma') {
+            $path = $this->resolveImagePath($actaFirmaPath);
+            if ($path && file_exists($path)) {
+                return $path;
+            }
+        }
+
         return null;
     }
 
-    private function insertFirmaCentrada($sheet, ?string $realPath, string $startCol, string $endCol, int $row, int $targetHeight = 65, int $maxWidth = 260): void
+    private function insertFirma($sheet, ?string $realPath, string $cell): void
     {
         if (!$realPath || !file_exists($realPath)) {
             return;
@@ -416,88 +416,13 @@ class CpEntregaActivosFijosExport
                 return;
             }
 
-            // Escala proporcional
-            $imgW = (int) round($origW * ($targetHeight / $origH));
-            $imgH = $targetHeight;
-            if ($imgW > $maxWidth) {
-                $imgW = $maxWidth;
-                $imgH = (int) round($origH * ($maxWidth / $origW));
-            }
-
-            // Construir lista de columnas en el rango
-            $cols = [];
-            $curr = $startCol;
-            while ($curr !== $endCol) {
-                $cols[] = $curr;
-                $curr++;
-            }
-            $cols[] = $endCol;
-
-            // Calcular ancho total del bloque y ancho de cada columna en píxeles
-            $totalBoxWidth = 0;
-            $colWidths = [];
-            foreach ($cols as $col) {
-                $cw = \PhpOffice\PhpSpreadsheet\Shared\Drawing::cellDimensionToPixels(
-                    $sheet->getColumnDimension($col)->getWidth(),
-                    new \PhpOffice\PhpSpreadsheet\Style\Font()
-                );
-                $colWidths[$col] = $cw;
-                $totalBoxWidth += $cw;
-            }
-
-            // Centrado horizontal
-            $targetOffset = max(0, (int) round(($totalBoxWidth - $imgW) / 2));
-            $accum = 0;
-            $anchorCol = $startCol;
-            $offsetX = 0;
-            foreach ($colWidths as $col => $cw) {
-                if ($targetOffset < $accum + $cw) {
-                    $anchorCol = $col;
-                    $offsetX = $targetOffset - $accum;
-                    break;
-                }
-                $accum += $cw;
-            }
-
-            // Centrado vertical: la fila tiene altura 75 pt => ~100 px a 96 DPI
-            $rowHeightPx = (int) round(75 * (96 / 72));
-            $offsetY = max(2, (int) round(($rowHeightPx - $imgH) / 2));
-
-            $drawing = new Drawing();
-            $drawing->setName('Firma');
-            $drawing->setDescription('Firma');
-            $drawing->setPath($realPath);
-            $drawing->setCoordinates("{$anchorCol}{$row}");
-            $drawing->setWidth($imgW);
-            $drawing->setHeight($imgH);
-            $drawing->setOffsetX($offsetX);
-            $drawing->setOffsetY($offsetY);
-            $drawing->setWorksheet($sheet);
-        } catch (\Throwable $e) {
-            // Continuar sin interrumpir la exportación si la imagen falla
-        }
-    }
-
-    private function insertFirma($sheet, $path, string $cell): void
-    {
-        $realPath = $this->resolveImagePath($path);
-        if (!$realPath || !file_exists($realPath)) {
-            return;
-        }
-
-        try {
-            $imageInfo = @getimagesize($realPath);
-            if (!$imageInfo) {
-                return;
-            }
-
             $drawing = new Drawing();
             $drawing->setName('Firma');
             $drawing->setDescription('Firma');
             $drawing->setPath($realPath);
             $drawing->setCoordinates($cell);
             $drawing->setResizeProportional(true);
-            $drawing->setHeight(65);
+            $drawing->setHeight(46);
             $drawing->setOffsetX(0);
             $drawing->setOffsetY(4);
             $drawing->setWorksheet($sheet);
@@ -530,12 +455,13 @@ class CpEntregaActivosFijosExport
             return null;
         }
 
-        // URLs o rutas relativas
+        // Si es una URL o ruta que contiene /storage/, extraer la ruta interna primero (evita llamada HTTP externa que puede fallar o hacer timeout)
         $cleanPath = $path;
         if (preg_match('#/storage/(.+)#', $cleanPath, $matches)) {
             $cleanPath = $matches[1];
+        } else {
+            $cleanPath = ltrim(str_replace(['public/', 'storage/', 'api/'], '', $cleanPath), '/');
         }
-        $cleanPath = ltrim(str_replace(['public/', 'storage/', 'api/'], '', $cleanPath), '/');
 
         if (Storage::disk('public')->exists($cleanPath)) {
             return storage_path('app/public/' . $cleanPath);
@@ -545,11 +471,13 @@ class CpEntregaActivosFijosExport
             return storage_path('app/public/' . $cleanPath);
         } elseif (file_exists(storage_path('app/' . $cleanPath))) {
             return storage_path('app/' . $cleanPath);
+        } elseif (file_exists(base_path('public/storage/' . $cleanPath))) {
+            return base_path('public/storage/' . $cleanPath);
         } elseif (file_exists($path)) {
             return $path;
         }
 
-        // Si es una URL remota http/https, intentar descargar temporalmente
+        // Si es una URL remota http/https no encontrada en almacenamiento local, intentar descargar temporalmente
         if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
             try {
                 $resp = \Illuminate\Support\Facades\Http::timeout(3)->get($path);
