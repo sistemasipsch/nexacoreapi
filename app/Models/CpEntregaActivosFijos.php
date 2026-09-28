@@ -28,14 +28,14 @@ class CpEntregaActivosFijos extends Model
 
     public function getFirmaQuienEntregaAttribute($value)
     {
-        if (!$value) return null;
+        if (!$value || $value === 'sin_firma') return null;
         $path = str_replace(['storage/', 'public/'], '', $value);
         return url('storage/' . $path);
     }
 
     public function getFirmaQuienRecibeAttribute($value)
     {
-        if (!$value) return null;
+        if (!$value || $value === 'sin_firma') return null;
         $path = str_replace(['storage/', 'public/'], '', $value);
         return url('storage/' . $path);
     }

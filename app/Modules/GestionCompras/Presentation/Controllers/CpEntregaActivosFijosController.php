@@ -186,6 +186,8 @@ class CpEntregaActivosFijosController extends Controller
             'fecha_entrega' => 'required|date',
             'use_stored_signature_entrega' => 'nullable|boolean',
             'use_stored_signature_recibe' => 'nullable|boolean',
+            'quitar_firma_entrega' => 'nullable|boolean',
+            'quitar_firma_recibe' => 'nullable|boolean',
             'firma_quien_entrega' => 'nullable|file|mimes:png,jpg|max:1024',
             'firma_quien_recibe' => 'nullable|file|mimes:png,jpg|max:1024',
             'items' => 'required|array|min:1',
@@ -201,7 +203,9 @@ class CpEntregaActivosFijosController extends Controller
                 $request->file('firma_quien_recibe'),
                 $request->boolean('use_stored_signature_entrega'),
                 $request->boolean('use_stored_signature_recibe'),
-                auth('api')->user()
+                auth('api')->user(),
+                $request->boolean('quitar_firma_entrega'),
+                $request->boolean('quitar_firma_recibe')
             );
 
             return response()->json([
@@ -288,6 +292,8 @@ class CpEntregaActivosFijosController extends Controller
             'fecha_entrega' => 'sometimes|date',
             'use_stored_signature_entrega' => 'nullable|boolean',
             'use_stored_signature_recibe' => 'nullable|boolean',
+            'quitar_firma_entrega' => 'nullable|boolean',
+            'quitar_firma_recibe' => 'nullable|boolean',
             'firma_quien_entrega' => 'nullable|file|mimes:png,jpg|max:1024',
             'firma_quien_recibe' => 'nullable|file|mimes:png,jpg|max:1024',
             'items' => 'sometimes|array|min:1',
@@ -304,7 +310,9 @@ class CpEntregaActivosFijosController extends Controller
                 $request->file('firma_quien_recibe'),
                 $request->boolean('use_stored_signature_entrega'),
                 $request->boolean('use_stored_signature_recibe'),
-                auth('api')->user()
+                auth('api')->user(),
+                $request->boolean('quitar_firma_entrega'),
+                $request->boolean('quitar_firma_recibe')
             );
 
             return response()->json([

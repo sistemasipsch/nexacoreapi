@@ -339,8 +339,21 @@ class CpEntregaActivosFijosExport
 
     private function resolveFirmaForPersona(?string $actaFirmaPath, ?\App\Models\Personal $persona): ?string
     {
-        // 1. PRIORIDAD MÁXIMA: Firma oficial registrada en la tabla personal
-        if ($persona) {
+        // 1. Si el acta se configuró explícitamente sin firma o en blanco, retornar null
+        if ($actaFirmaPath === 'sin_firma') {
+            return null;
+        }
+
+        // 2. Si el acta tiene una firma guardada explícita (archivo de firma)
+        if (!empty($actaFirmaPath) && $actaFirmaPath !== 'sin_firma') {
+            $path = $this->resolveImagePath($actaFirmaPath);
+            if ($path && file_exists($path)) {
+                return $path;
+            }
+        }
+
+        // 3. Si el acta no tiene firma guardada (null) y pertenece a personal, consultar firma oficial
+        if ($persona && empty($actaFirmaPath)) {
             $rawPersonalFirma = $persona->getRawOriginal('firma') ?: $persona->firma;
             if (!empty($rawPersonalFirma)) {
                 $path = $this->resolveImagePath($rawPersonalFirma);
@@ -348,18 +361,8 @@ class CpEntregaActivosFijosExport
                     return $path;
                 }
             }
-        }
 
-        // 2. PRIORIDAD SECUNDARIA: Firma explícita guardada en el acta de entrega (si personal no tiene)
-        if (!empty($actaFirmaPath)) {
-            $path = $this->resolveImagePath($actaFirmaPath);
-            if ($path && file_exists($path)) {
-                return $path;
-            }
-        }
-
-        // 3. Firma digital en Usuario vinculada por número de documento / cédula
-        if ($persona) {
+            // 4. Firma digital en Usuario vinculada por número de documento / cédula
             if (!empty($persona->cedula)) {
                 $usuario = Usuario::where('usuario', $persona->cedula)
                     ->whereNotNull('firma_digital')
@@ -375,7 +378,7 @@ class CpEntregaActivosFijosExport
                 }
             }
 
-            // 4. Firma digital en Usuario vinculada por nombre completo exacto
+            // 5. Firma digital en Usuario vinculada por nombre completo exacto
             if (!empty($persona->nombre)) {
                 $usuario = Usuario::where('nombre_completo', $persona->nombre)
                     ->whereNotNull('firma_digital')

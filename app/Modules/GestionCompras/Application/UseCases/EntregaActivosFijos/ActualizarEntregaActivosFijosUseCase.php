@@ -12,7 +12,7 @@ class ActualizarEntregaActivosFijosUseCase
 {
     use HandleSignatureTrait;
 
-    public function execute($id, array $data, $firmaEntregaFile = null, $firmaRecibeFile = null, $useStoredSignatureEntrega = false, $useStoredSignatureRecibe = false, $user = null)
+    public function execute($id, array $data, $firmaEntregaFile = null, $firmaRecibeFile = null, $useStoredSignatureEntrega = false, $useStoredSignatureRecibe = false, $user = null, $quitarFirmaEntrega = false, $quitarFirmaRecibe = false)
     {
         try {
             DB::beginTransaction();
@@ -20,20 +20,30 @@ class ActualizarEntregaActivosFijosUseCase
             $entrega = CpEntregaActivosFijos::findOrFail($id);
             $updateData = $data;
 
-            if ($firmaEntregaFile || $useStoredSignatureEntrega) {
+            if ($quitarFirmaEntrega || ($data['quitar_firma_entrega'] ?? false)) {
+                if ($entrega->getRawOriginal('firma_quien_entrega') && $entrega->getRawOriginal('firma_quien_entrega') !== 'sin_firma') {
+                    Storage::disk('public')->delete(str_replace(['storage/', 'public/'], '', $entrega->getRawOriginal('firma_quien_entrega')));
+                }
+                $updateData['firma_quien_entrega'] = 'sin_firma';
+            } elseif ($firmaEntregaFile || $useStoredSignatureEntrega) {
                 $path = $this->handleSignature($firmaEntregaFile, $useStoredSignatureEntrega, $user, 'entrega_firma_entrega_edit');
                 if ($path) {
-                    if ($entrega->getRawOriginal('firma_quien_entrega')) {
+                    if ($entrega->getRawOriginal('firma_quien_entrega') && $entrega->getRawOriginal('firma_quien_entrega') !== 'sin_firma') {
                         Storage::disk('public')->delete(str_replace(['storage/', 'public/'], '', $entrega->getRawOriginal('firma_quien_entrega')));
                     }
                     $updateData['firma_quien_entrega'] = 'storage/' . $path;
                 }
             }
 
-            if ($firmaRecibeFile || $useStoredSignatureRecibe) {
+            if ($quitarFirmaRecibe || ($data['quitar_firma_recibe'] ?? false)) {
+                if ($entrega->getRawOriginal('firma_quien_recibe') && $entrega->getRawOriginal('firma_quien_recibe') !== 'sin_firma') {
+                    Storage::disk('public')->delete(str_replace(['storage/', 'public/'], '', $entrega->getRawOriginal('firma_quien_recibe')));
+                }
+                $updateData['firma_quien_recibe'] = 'sin_firma';
+            } elseif ($firmaRecibeFile || $useStoredSignatureRecibe) {
                 $path = $this->handleSignature($firmaRecibeFile, $useStoredSignatureRecibe, $user, 'entrega_firma_recibe_edit');
                 if ($path) {
-                    if ($entrega->getRawOriginal('firma_quien_recibe')) {
+                    if ($entrega->getRawOriginal('firma_quien_recibe') && $entrega->getRawOriginal('firma_quien_recibe') !== 'sin_firma') {
                         Storage::disk('public')->delete(str_replace(['storage/', 'public/'], '', $entrega->getRawOriginal('firma_quien_recibe')));
                     }
                     $updateData['firma_quien_recibe'] = 'storage/' . $path;

@@ -11,19 +11,29 @@ class CrearEntregaActivosFijosUseCase
 {
     use HandleSignatureTrait;
 
-    public function execute(array $data, $firmaEntregaFile = null, $firmaRecibeFile = null, $useStoredSignatureEntrega = false, $useStoredSignatureRecibe = false, $user = null)
+    public function execute(array $data, $firmaEntregaFile = null, $firmaRecibeFile = null, $useStoredSignatureEntrega = false, $useStoredSignatureRecibe = false, $user = null, $quitarFirmaEntrega = false, $quitarFirmaRecibe = false)
     {
         try {
             DB::beginTransaction();
 
-            $firmaEntregaPath = $this->handleSignature($firmaEntregaFile, $useStoredSignatureEntrega, $user, 'entrega_firma_entrega');
-            if ($firmaEntregaPath) {
-                $firmaEntregaPath = 'storage/' . $firmaEntregaPath;
+            $firmaEntregaPath = null;
+            if ($quitarFirmaEntrega || ($data['quitar_firma_entrega'] ?? false)) {
+                $firmaEntregaPath = 'sin_firma';
+            } else {
+                $firmaEntregaPath = $this->handleSignature($firmaEntregaFile, $useStoredSignatureEntrega, $user, 'entrega_firma_entrega');
+                if ($firmaEntregaPath) {
+                    $firmaEntregaPath = 'storage/' . $firmaEntregaPath;
+                }
             }
 
-            $firmaRecibePath = $this->handleSignature($firmaRecibeFile, $useStoredSignatureRecibe, $user, 'entrega_firma_recibe');
-            if ($firmaRecibePath) {
-                $firmaRecibePath = 'storage/' . $firmaRecibePath;
+            $firmaRecibePath = null;
+            if ($quitarFirmaRecibe || ($data['quitar_firma_recibe'] ?? false)) {
+                $firmaRecibePath = 'sin_firma';
+            } else {
+                $firmaRecibePath = $this->handleSignature($firmaRecibeFile, $useStoredSignatureRecibe, $user, 'entrega_firma_recibe');
+                if ($firmaRecibePath) {
+                    $firmaRecibePath = 'storage/' . $firmaRecibePath;
+                }
             }
 
             $entrega = CpEntregaActivosFijos::create([
