@@ -29,7 +29,7 @@ class ActualizarPedidoUseCase
             if ($esPrioritario) {
                 $permissionService = app(PermissionService::class);
                 if (!$permissionService->canCreatePriorityOrder($user)) {
-                    throw new Exception('No cuenta con autorización para tramitar pedidos prioritarios. Esta modalidad está reservada para contingencias urgentes autorizadas por Coordinación. Por favor, registre su solicitud como pedido recurrente en los horarios habilitados.');
+                    throw new Exception('Solo los coordinadores están autorizados para realizar pedidos prioritarios. El resto de usuarios únicamente pueden realizar pedidos en los horarios establecidos como pedidos recurrentes.');
                 }
             }
 

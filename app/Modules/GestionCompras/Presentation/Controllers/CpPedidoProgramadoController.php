@@ -84,7 +84,7 @@ class CpPedidoProgramadoController extends Controller
                 $user = auth('api')->user() ?? auth()->user() ?? \App\Models\Usuario::find($request->input('creado_por'));
                 if (!$user || !app(\App\Services\PermissionService::class)->canCreatePriorityOrder($user)) {
                     return response()->json([
-                        'error' => 'No cuenta con autorización para tramitar pedidos prioritarios. Esta modalidad está reservada para contingencias urgentes autorizadas por Coordinación. Por favor, registre su solicitud como pedido recurrente en los horarios habilitados.'
+                        'error' => 'Solo los coordinadores están autorizados para realizar pedidos prioritarios. El resto de usuarios únicamente pueden realizar pedidos en los horarios establecidos como pedidos recurrentes.'
                     ], 403);
                 }
             }
@@ -208,7 +208,7 @@ class CpPedidoProgramadoController extends Controller
                 $user = auth('api')->user() ?? auth()->user();
                 if (!$user || !app(\App\Services\PermissionService::class)->canCreatePriorityOrder($user)) {
                     return response()->json([
-                        'error' => 'No cuenta con autorización para tramitar pedidos prioritarios. Esta modalidad está reservada para contingencias urgentes autorizadas por Coordinación. Por favor, registre su solicitud como pedido recurrente en los horarios habilitados.'
+                        'error' => 'Solo los coordinadores están autorizados para realizar pedidos prioritarios. El resto de usuarios únicamente pueden realizar pedidos en los horarios establecidos como pedidos recurrentes.'
                     ], 403);
                 }
             }
