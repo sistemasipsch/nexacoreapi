@@ -18,7 +18,7 @@ class GenerarActasMantenimiento extends Command
      * @var string
      */
     protected $signature = 'ejecutar:ActasMantenimiento 
-                            {fase? : Fase a ejecutar: 1 (Sergio Prosperini - Agosto) o 2 (Ashly Perez y Kevin Moreno - Septiembre)}
+                            {fase? : Fase a ejecutar: 1 (Sergio - Agosto), 2 (Ashly y Kevin - Septiembre), o 3 (Completar todas las pendientes antiguas)}
                             {--dry-run : Ejecutar en modo simulación sin guardar cambios en la base de datos}';
 
     /**
@@ -26,7 +26,7 @@ class GenerarActasMantenimiento extends Command
      *
      * @var string
      */
-    protected $description = 'Genera masivamente las actas de mantenimiento preventivo de PC con criterios de auditoría (fechas anticipadas al vencimiento).';
+    protected $description = 'Genera masivamente las actas de mantenimiento preventivo de PC con criterios de auditoría o regulariza actas pendientes.';
 
     /**
      * Execute the console command.
@@ -36,24 +36,53 @@ class GenerarActasMantenimiento extends Command
         $fase = $this->argument('fase');
         $isDryRun = (bool) $this->option('dry-run');
 
-        if (!$fase || !in_array((string)$fase, ['1', '2'], true)) {
-            $fase = $this->choice('¿Qué fase de mantenimiento deseas ejecutar?', [
+        if (!$fase || !in_array((string)$fase, ['1', '2', '3', 'completar-pendientes'], true)) {
+            $fase = $this->choice('¿Qué acción deseas ejecutar?', [
                 '1' => 'Fase 1: Sergio Prosperini (40 equipos pendientes hasta Agosto 2026)',
                 '2' => 'Fase 2: Ashly Perez y Kevin Moreno (83 equipos hasta 9 de Octubre 2026)',
+                '3' => 'Fase 3: Marcar todas las actas antiguas pendientes como COMPLETADAS',
             ], '1');
             $fase = substr($fase, 0, 1);
         }
 
         $this->info("===============================================================");
-        $this->info("  GENERACIÓN MASIVA DE MANTENIMIENTOS PREVENTIVOS DE PC");
+        $this->info("  GENERACIÓN Y REGULARIZACIÓN DE MANTENIMIENTOS DE PC");
         $this->info("  Fase: {$fase} | Modo: " . ($isDryRun ? "SIMULACIÓN (--dry-run)" : "EJECUCIÓN REAL"));
         $this->info("===============================================================\n");
 
         if ($fase === '1') {
             $this->ejecutarFase1($isDryRun);
-        } else {
+        } elseif ($fase === '2') {
             $this->ejecutarFase2($isDryRun);
+        } else {
+            $this->regularizarActasPendientes($isDryRun);
         }
+    }
+
+    /**
+     * FASE 3: Regularizar actas pendientes antiguas a 'completado'.
+     */
+    private function regularizarActasPendientes(bool $isDryRun)
+    {
+        $pendientes = PcMantenimiento::where('estado', 'like', '%pendiente%')->get();
+        $total = $pendientes->count();
+
+        $this->info("Actas antiguas en estado 'pendiente' encontradas: {$total}");
+
+        if ($total === 0) {
+            $this->info("No hay actas pendientes por regularizar. Todas están completadas.");
+            return;
+        }
+
+        if ($isDryRun) {
+            $this->warn("\n[SIMULACIÓN] Se actualizarían {$total} actas a estado 'completado'. No se realizaron cambios.");
+            return;
+        }
+
+        $actualizados = PcMantenimiento::where('estado', 'like', '%pendiente%')
+            ->update(['estado' => 'completado']);
+
+        $this->info("¡Éxito! Se actualizaron correctamente {$actualizados} actas al estado 'completado'.");
     }
 
     /**
@@ -312,6 +341,13 @@ class GenerarActasMantenimiento extends Command
                 $fechaHora = Carbon::parse($item['fecha'])->setTime(9, 30, 0)->format('Y-m-d H:i:s');
                 $firma = $firmaFija ?? ($item['firma_sistemas'] ?? null);
 
+                $nombreTecnico = match((int)$item['tecnico_id']) {
+                    7 => 'Sergio Andres Prosperini Macias',
+                    73 => 'PEREZ LOPEZ ASHLY NICOLE',
+                    65 => 'Kevin Moreno',
+                    default => 'Técnico de Sistemas'
+                };
+
                 PcMantenimiento::create([
                     'equipo_id' => $item['equipo_id'],
                     'tipo_mantenimiento' => 'preventivo',
@@ -322,7 +358,7 @@ class GenerarActasMantenimiento extends Command
                     'cantidad_repuesto' => 0,
                     'costo_repuesto' => 0.00,
                     'nombre_repuesto' => null,
-                    'responsable_mantenimiento' => $item['tecnico_id'],
+                    'responsable_mantenimiento' => $nombreTecnico,
                     'firma_personal_cargo' => null,
                     'firma_sistemas' => $firma,
                     'creado_por' => $item['tecnico_id'],

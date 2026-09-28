@@ -30,10 +30,10 @@ class PcMantenimientoRepository implements PcMantenimientoRepositoryInterface
         return PcMantenimiento::with([
             'equipo.sede',
             'equipo.area',
-            'equipo.responsable',
+            'equipo.responsable.cargo',
             'equipo.caracteristicasTecnicas',
             'empresaResponsable',
-            'creador:id,nombre_completo'
+            'creador:id,nombre_completo,firma_digital'
         ])->find($id);
     }
 

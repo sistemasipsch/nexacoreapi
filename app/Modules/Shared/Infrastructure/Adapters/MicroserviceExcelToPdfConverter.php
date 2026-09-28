@@ -22,7 +22,7 @@ class MicroserviceExcelToPdfConverter implements ExcelToPdfConverterInterface
         if (!empty($url)) {
             try {
                 $endpoint = rtrim($url, '/') . '/api/convertir/excel-a-pdf';
-                $response = Http::timeout(6)->withHeaders([
+                $response = Http::timeout(12)->withHeaders([
                     'x-api-key' => $apiKey,
                 ])->attach(
                     'documento', file_get_contents($excelFilePath), basename($excelFilePath)
@@ -47,12 +47,22 @@ class MicroserviceExcelToPdfConverter implements ExcelToPdfConverterInterface
         $spreadsheet = IOFactory::load($excelFilePath);
         $sheet = $spreadsheet->getActiveSheet();
 
-        $highestRow = $sheet->getHighestRow();
-        $highestCol = $sheet->getHighestColumn();
-        $sheet->getPageSetup()->setPrintArea("A1:{$highestCol}{$highestRow}");
+        // Respetar el área de impresión si ya está definida en el archivo (ej. B2:AL17)
+        if (!$sheet->getPageSetup()->getPrintArea()) {
+            $sheet->getPageSetup()->setPrintArea('B2:AL17');
+        }
+
+        $sheet->getPageSetup()->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_LANDSCAPE);
+        $sheet->getPageSetup()->setPaperSize(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::PAPERSIZE_LETTER);
         $sheet->getPageSetup()->setFitToPage(true);
         $sheet->getPageSetup()->setFitToWidth(1);
-        $sheet->getPageSetup()->setFitToHeight(0);
+        $sheet->getPageSetup()->setFitToHeight(1);
+        $sheet->getPageSetup()->setHorizontalCentered(true);
+        $sheet->getPageSetup()->setVerticalCentered(true);
+        $sheet->getPageMargins()->setTop(0.6);
+        $sheet->getPageMargins()->setBottom(0.6);
+        $sheet->getPageMargins()->setLeft(0.7);
+        $sheet->getPageMargins()->setRight(0.7);
 
         while ($spreadsheet->getSheetCount() > 1) {
             $spreadsheet->removeSheetByIndex(1);
