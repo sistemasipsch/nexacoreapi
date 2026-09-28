@@ -309,9 +309,9 @@ class CpEntregaActivosFijosExport
         $firmaEntregaPath = $this->resolveFirmaForPersona($entrega->getRawOriginal('firma_quien_entrega'), $entrega->coordinador);
         $firmaRecibePath  = $this->resolveFirmaForPersona($entrega->getRawOriginal('firma_quien_recibe'),  $entrega->personal);
 
-        // Insertar firmas en las celdas centrales de los rangos combinados (B..M -> H, N..U -> R)
-        $this->insertFirma($sheet, $firmaEntregaPath, "H{$sigRow}");
-        $this->insertFirma($sheet, $firmaRecibePath,  "R{$sigRow}");
+        // Insertar firmas en las celdas centrales calculadas (H para Entrega, S para Recibe) con centrado horizontal dinámico
+        $this->insertFirma($sheet, $firmaEntregaPath, "H{$sigRow}", 70);
+        $this->insertFirma($sheet, $firmaRecibePath,  "S{$sigRow}", 55);
 
         // 4. Configuración de Página y Área de Impresión
         $highestRow = $sheet->getHighestRow();
@@ -398,7 +398,7 @@ class CpEntregaActivosFijosExport
         return null;
     }
 
-    private function insertFirma($sheet, ?string $realPath, string $cell): void
+    private function insertFirma($sheet, ?string $realPath, string $cell, int $baseOffset = 0): void
     {
         if (!$realPath || !file_exists($realPath)) {
             return;
@@ -416,14 +416,23 @@ class CpEntregaActivosFijosExport
                 return;
             }
 
+            // Altura proporcional estándar
+            $targetHeight = 46;
+            $imgW = (int) round($origW * ($targetHeight / $origH));
+            if ($imgW > 220) {
+                $imgW = 220;
+            }
+
+            $offsetX = max(0, (int) round($baseOffset - ($imgW / 2)));
+
             $drawing = new Drawing();
             $drawing->setName('Firma');
             $drawing->setDescription('Firma');
             $drawing->setPath($realPath);
             $drawing->setCoordinates($cell);
             $drawing->setResizeProportional(true);
-            $drawing->setHeight(46);
-            $drawing->setOffsetX(0);
+            $drawing->setHeight($targetHeight);
+            $drawing->setOffsetX($offsetX);
             $drawing->setOffsetY(4);
             $drawing->setWorksheet($sheet);
         } catch (\Throwable $e) {
