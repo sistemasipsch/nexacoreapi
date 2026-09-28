@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
 use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -67,7 +68,7 @@ class CpEntregaActivosFijosExport
                 echo $pdfContent;
             }, 200, [
                 'Content-Type'                  => 'application/pdf',
-                'Content-Disposition'           => 'attachment; filename="' . $filename . '"',
+                'Content-Disposition'           => 'inline; filename="' . $filename . '"',
                 'Content-Length'                => strlen($pdfContent),
                 'Cache-Control'                 => 'max-age=0',
                 'Access-Control-Expose-Headers' => 'Content-Disposition',
@@ -125,10 +126,28 @@ class CpEntregaActivosFijosExport
         $spreadsheet = IOFactory::load($templatePath);
         $sheet = $spreadsheet->getActiveSheet();
 
+        // 1. Reorganización de celdas de encabezado: extender Coordinador/Proceso/Sede hasta la columna U
+        $sheet->unmergeCells('O6:T6');
+        $sheet->unmergeCells('O7:T7');
+        $sheet->unmergeCells('O8:T8');
+
+        $sheet->mergeCells('O6:U6');
+        $sheet->mergeCells('O7:U7');
+        $sheet->mergeCells('O8:U8');
+
         // Limpiar dos puntos residuales en celda M5 de la plantilla
         $sheet->setCellValue('M5', '');
 
-        // 1. Datos de Encabezado
+        // Etiquetas oficiales del formato
+        $sheet->setCellValue('F6', 'NOMBRE DEL RESPONSABLE:');
+        $sheet->setCellValue('F7', 'DOCUMENTO:');
+        $sheet->setCellValue('F8', 'CARGO:');
+
+        $sheet->setCellValue('M6', 'COORDINADOR DE PROCESO:');
+        $sheet->setCellValue('M7', 'PROCESO:');
+        $sheet->setCellValue('M8', 'SEDE:');
+
+        // Datos de Fecha
         if ($entrega->fecha_entrega) {
             $fecha = Carbon::parse($entrega->fecha_entrega);
             $sheet->setCellValue('B8', $fecha->format('d'));
@@ -144,14 +163,41 @@ class CpEntregaActivosFijosExport
 
         $sheet->setCellValue('O6', $entrega->coordinador?->nombre ?? 'N/A');
         $sheet->setCellValue('O7', $entrega->procesoSolicitante?->nombre ?? 'N/A');
-        $sheet->setCellValue('O8', $entrega->sede?->nombre ?? 'N/A');
+        $sheet->setCellValue('O8', $entrega->sede?->nombre ?? 'Sin ubicación');
 
-        // Alineación y centrado de encabezados
-        $sheet->getStyle('B8:D8')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
-        $sheet->getStyle('H6:L8')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER)->setWrapText(true);
-        $sheet->getStyle('O6:T8')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER)->setWrapText(true);
-        $sheet->getStyle('H6:L8')->getFont()->setSize(10)->setBold(false);
-        $sheet->getStyle('O6:T8')->getFont()->setSize(10)->setBold(false);
+        $centerStyle = [
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical' => Alignment::VERTICAL_CENTER,
+                'wrapText' => true,
+            ],
+        ];
+
+        $thinBorders = [
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['argb' => 'FF000000'],
+                ],
+            ],
+        ];
+
+        // Centrado de fecha
+        $sheet->getStyle('B8:D8')->applyFromArray($centerStyle);
+
+        // Etiquetas de Responsable y Coordinador: centradas, negrita, tamaño uniforme
+        $sheet->getStyle('F6:G8')->applyFromArray($centerStyle)->applyFromArray($thinBorders);
+        $sheet->getStyle('F6:G8')->getFont()->setSize(9)->setBold(true);
+
+        $sheet->getStyle('M6:N8')->applyFromArray($centerStyle)->applyFromArray($thinBorders);
+        $sheet->getStyle('M6:N8')->getFont()->setSize(8.5)->setBold(true);
+
+        // Valores de Responsable y Coordinador: centrados, tamaño legible, con bordes cerrados hasta la columna U
+        $sheet->getStyle('H6:L8')->applyFromArray($centerStyle)->applyFromArray($thinBorders);
+        $sheet->getStyle('H6:L8')->getFont()->setSize(9.5)->setBold(false);
+
+        $sheet->getStyle('O6:U8')->applyFromArray($centerStyle)->applyFromArray($thinBorders);
+        $sheet->getStyle('O6:U8')->getFont()->setSize(9.5)->setBold(false);
 
         // 2. Items Dinámicos
         $startRow = 14;
@@ -281,6 +327,10 @@ class CpEntregaActivosFijosExport
         $sheet->getPageMargins()->setLeft(0.25);
         $sheet->getPageMargins()->setRight(0.25);
 
+        // Asegurar que las cláusulas legales y compromisoria inferiores tengan ajuste de texto y tamaño adecuado
+        $sheet->getStyle("B" . ($sigRow + 3) . ":U{$highestRow}")->getAlignment()->setWrapText(true);
+        $sheet->getStyle("B" . ($sigRow + 3) . ":U{$highestRow}")->getFont()->setSize(8.5);
+
         $responsableSanitized = preg_replace('/[^A-Za-z0-9_\-]/', '_', $entrega->personal?->nombre ?? 'PERSONAL');
         $filenameBase = "entrega_activos_{$entrega->id}_{$responsableSanitized}";
 
@@ -289,15 +339,7 @@ class CpEntregaActivosFijosExport
 
     private function resolveFirmaForPersona(?string $actaFirmaPath, ?\App\Models\Personal $persona): ?string
     {
-        // 1. Firma explícita guardada en el registro del acta
-        if (!empty($actaFirmaPath)) {
-            $path = $this->resolveImagePath($actaFirmaPath);
-            if ($path && file_exists($path)) {
-                return $path;
-            }
-        }
-
-        // 2. Firma registrada en el perfil de Personal
+        // 1. PRIORIDAD MÁXIMA: Firma oficial registrada en la tabla personal
         if ($persona) {
             $rawPersonalFirma = $persona->getRawOriginal('firma') ?: $persona->firma;
             if (!empty($rawPersonalFirma)) {
@@ -306,8 +348,18 @@ class CpEntregaActivosFijosExport
                     return $path;
                 }
             }
+        }
 
-            // 3. Firma digital en Usuario vinculada por número de documento / cédula
+        // 2. PRIORIDAD SECUNDARIA: Firma explícita guardada en el acta de entrega (si personal no tiene)
+        if (!empty($actaFirmaPath)) {
+            $path = $this->resolveImagePath($actaFirmaPath);
+            if ($path && file_exists($path)) {
+                return $path;
+            }
+        }
+
+        // 3. Firma digital en Usuario vinculada por número de documento / cédula
+        if ($persona) {
             if (!empty($persona->cedula)) {
                 $usuario = Usuario::where('usuario', $persona->cedula)
                     ->whereNotNull('firma_digital')
