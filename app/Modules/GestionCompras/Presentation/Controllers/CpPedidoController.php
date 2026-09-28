@@ -153,7 +153,7 @@ class CpPedidoController extends Controller
 
         if ($esPrioritario) {
             if (!$this->permissionService->canCreatePriorityOrder($user)) {
-                abort(403, 'No tienes permisos para realizar pedidos prioritarios. Solo las personas con el permiso cp_pedido.realizar_pedido_prioritario habilitado pueden hacer pedidos prioritarios, el resto solo puede hacer pedidos recurrentes.');
+                abort(403, 'No cuenta con autorización para tramitar pedidos prioritarios. Esta modalidad está reservada para contingencias urgentes autorizadas por Coordinación. Por favor, registre su solicitud como pedido recurrente en los horarios habilitados.');
             }
         }
 
