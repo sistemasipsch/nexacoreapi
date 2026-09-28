@@ -124,6 +124,9 @@ class UsuarioController extends Controller
         }
 
         $usuario = $this->crearUsuarioUseCase->execute($validated);
+        if ($usuario) {
+            self::sincronizarSedePersona($usuario);
+        }
         return ApiResponse::success($usuario, 'Usuario creado exitosamente', 201);
     }
 
@@ -147,6 +150,9 @@ class UsuarioController extends Controller
 
         try {
             $usuario = $this->actualizarUsuarioUseCase->execute($id, $validated);
+            if ($usuario) {
+                self::sincronizarSedePersona($usuario);
+            }
             return ApiResponse::success($usuario, 'Usuario actualizado exitosamente');
         } catch (\Exception $e) {
             return ApiResponse::error('Error al actualizar usuario: ' . $e->getMessage(), 404);
@@ -167,5 +173,44 @@ class UsuarioController extends Controller
     {
         $usuarios = $this->listarUsuariosPorPermisoUseCase->execute($permiso);
         return ApiResponse::success($usuarios, 'Usuarios con permiso: ' . $permiso);
+    }
+
+    public static function sincronizarSedePersona($usuario)
+    {
+        try {
+            $clean = function($str) {
+                $str = mb_strtoupper(trim($str), 'UTF-8');
+                $unwanted = ['Á'=>'A', 'É'=>'E', 'Í'=>'I', 'Ó'=>'O', 'Ú'=>'U', 'Ü'=>'U', 'Ñ'=>'N'];
+                return strtr($str, $unwanted);
+            };
+
+            $uClean = $clean($usuario->nombre_completo ?? '');
+            if (!$uClean) return;
+
+            $uWords = array_values(array_filter(explode(' ', $uClean), fn($w) => strlen($w) >= 3));
+
+            $personales = \App\Models\Personal::all();
+            foreach ($personales as $p) {
+                $pClean = $clean($p->nombre);
+                $isMatch = false;
+                if ($pClean === $uClean) {
+                    $isMatch = true;
+                } else {
+                    $pWords = array_values(array_filter(explode(' ', $pClean), fn($w) => strlen($w) >= 3));
+                    $intersect = array_intersect($uWords, $pWords);
+                    if (count($intersect) >= 2 && count($intersect) >= count($uWords) * 0.5) {
+                        $isMatch = true;
+                    }
+                }
+
+                if ($isMatch) {
+                    $p->update(['sede_id' => $usuario->sede_id]);
+                    \App\Models\CpEntregaActivosFijos::where('personal_id', $p->id)
+                        ->update(['sede_id' => $usuario->sede_id]);
+                }
+            }
+        } catch (\Exception $e) {
+            // Silencioso para no interrumpir el flujo principal de usuarios
+        }
     }
 }

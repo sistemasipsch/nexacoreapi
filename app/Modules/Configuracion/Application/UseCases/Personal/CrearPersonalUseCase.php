@@ -29,6 +29,6 @@ class CrearPersonalUseCase
             $this->sincronizarUseCase->execute($personal->id, $data['firma'], null);
         }
 
-        return $personal->load('cargo');
+        return $personal->load(['cargo', 'sede']);
     }
 }

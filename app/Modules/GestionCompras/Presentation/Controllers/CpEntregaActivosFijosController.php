@@ -88,8 +88,12 @@ class CpEntregaActivosFijosController extends Controller
             'items.inventario'
         ]);
 
-        if ($request->filled('sede_id')) {
-            $query->where('sede_id', $request->sede_id);
+        if ($request->filled('sede_id') && $request->sede_id !== 'todas') {
+            if ($request->sede_id === 'sin_ubicacion' || $request->sede_id === 'null') {
+                $query->whereNull('sede_id');
+            } else {
+                $query->where('sede_id', $request->sede_id);
+            }
         }
 
         if ($request->filled('personal_id')) {
@@ -176,8 +180,8 @@ class CpEntregaActivosFijosController extends Controller
 
         $validated = $request->validate([
             'personal_id' => 'required|integer|exists:personal,id',
-            'sede_id' => 'required|integer|exists:sedes,id',
-            'proceso_solicitante' => 'required|integer|exists:dependencias_sedes,id',
+            'sede_id' => 'nullable|integer|exists:sedes,id',
+            'proceso_solicitante' => 'nullable|integer|exists:dependencias_sedes,id',
             'coordinador_id' => 'required|integer|exists:personal,id',
             'fecha_entrega' => 'required|date',
             'use_stored_signature_entrega' => 'nullable|boolean',
@@ -278,8 +282,8 @@ class CpEntregaActivosFijosController extends Controller
 
         $validated = $request->validate([
             'personal_id' => 'sometimes|integer|exists:personal,id',
-            'sede_id' => 'sometimes|integer|exists:sedes,id',
-            'proceso_solicitante' => 'sometimes|integer|exists:dependencias_sedes,id',
+            'sede_id' => 'nullable|integer|exists:sedes,id',
+            'proceso_solicitante' => 'nullable|integer|exists:dependencias_sedes,id',
             'coordinador_id' => 'sometimes|integer|exists:personal,id',
             'fecha_entrega' => 'sometimes|date',
             'use_stored_signature_entrega' => 'nullable|boolean',
@@ -529,58 +533,80 @@ class CpEntregaActivosFijosController extends Controller
             $procesoId = null;
             $coordinadorId = null;
 
-            // 1. Buscar en actas de entrega previas del responsable
-            $entregaPrevia = CpEntregaActivosFijos::where('personal_id', $personalId)
-                ->orderBy('id', 'desc')
-                ->first();
+            $personal = \App\Models\Personal::find($personalId);
 
-            if ($entregaPrevia) {
-                $sedeId = $entregaPrevia->sede_id;
-                $procesoId = $entregaPrevia->proceso_solicitante;
-                $coordinadorId = $entregaPrevia->coordinador_id;
+            // 1. Consultar si el personal tiene sede_id directamente asignado
+            if ($personal && $personal->sede_id) {
+                $sedeId = $personal->sede_id;
             }
 
-            // 2. Si aún no se determinó sede, buscar en inventario
+            // 2. Si no tiene sede_id en personal, buscar usuario correspondiente en usuarios por nombre
+            if (!$sedeId && $personal && !empty($personal->nombre)) {
+                $clean = function($str) {
+                    $str = mb_strtoupper(trim($str), 'UTF-8');
+                    $unwanted = ['Á'=>'A', 'É'=>'E', 'Í'=>'I', 'Ó'=>'O', 'Ú'=>'U', 'Ü'=>'U', 'Ñ'=>'N'];
+                    return strtr($str, $unwanted);
+                };
+
+                $pClean = $clean($personal->nombre);
+                $pWords = array_values(array_filter(explode(' ', $pClean), fn($w) => strlen($w) >= 3));
+
+                $allUsers = \App\Models\Usuario::whereNotNull('sede_id')->get();
+                $matchedUser = null;
+                $maxMatches = 0;
+
+                foreach ($allUsers as $u) {
+                    $uClean = $clean($u->nombre_completo);
+                    if ($uClean === $pClean) {
+                        $matchedUser = $u;
+                        break;
+                    }
+                    $uWords = array_values(array_filter(explode(' ', $uClean), fn($w) => strlen($w) >= 3));
+                    $intersect = array_intersect($pWords, $uWords);
+                    $count = count($intersect);
+                    if ($count >= 2 && $count > $maxMatches) {
+                        $maxMatches = $count;
+                        $matchedUser = $u;
+                    }
+                }
+
+                if ($matchedUser && $matchedUser->sede_id) {
+                    $sedeId = $matchedUser->sede_id;
+                }
+            }
+
+            // 3. Si aún no se determinó sede, buscar en actas de entrega previas del responsable que tengan sede asignada
             if (!$sedeId) {
+                $entregaPrevia = CpEntregaActivosFijos::where('personal_id', $personalId)
+                    ->whereNotNull('sede_id')
+                    ->orderBy('id', 'desc')
+                    ->first();
+
+                if ($entregaPrevia) {
+                    $sedeId = $entregaPrevia->sede_id;
+                    $procesoId = $entregaPrevia->proceso_solicitante;
+                    $coordinadorId = $entregaPrevia->coordinador_id;
+                }
+            }
+
+            // 4. Buscar coordinador y proceso si faltan
+            if (!$coordinadorId || !$procesoId) {
                 $items = \App\Models\Inventario::where('responsable_id', $personalId)->get();
                 if ($items->isNotEmpty()) {
                     $item = $items->first();
-                    $sedeId = $item->sede_id;
-                    $procesoId = $item->proceso_id;
-                    $coordinadorId = $item->coordinador_id;
-
-                    // Si la descripción textual de dependencia indica una sede específica
-                    foreach ($items as $it) {
-                        $depText = strtoupper(($it->dependencia ?? '') . ' ' . ($it->ubicacion ?? ''));
-                        if (str_contains($depText, 'CAOBOS')) {
-                            $sedeId = 2;
-                            break;
-                        } elseif (str_contains($depText, 'PAMI')) {
-                            $sedeId = 3;
-                            break;
-                        } elseif (str_contains($depText, 'ARCHIVO')) {
-                            $sedeId = 6;
-                            break;
-                        } elseif (str_contains($depText, 'HOGAR')) {
-                            $sedeId = 5;
-                            break;
-                        } elseif (str_contains($depText, 'AVENIDA CERO') || str_contains($depText, 'CLINICAL')) {
-                            $sedeId = 7;
-                            break;
-                        }
+                    $coordinadorId = $coordinadorId ?: $item->coordinador_id;
+                    $procesoId = $procesoId ?: $item->proceso_id;
+                    if (!$sedeId) {
+                        $sedeId = $item->sede_id;
                     }
                 }
             }
 
-            // 3. Fallback a SEDE PRINCIPAL si no se pudo determinar
-            if (!$sedeId) {
-                $sedeId = 1;
-            }
-
+            // 5. IMPORTANTE: NO forzar fallback a sede 1. Si no tiene sede registrada en el sistema, devolver null.
             return response()->json([
                 'status' => 'success',
                 'objeto' => [
-                    'sede_id' => (int)$sedeId,
+                    'sede_id' => $sedeId ? (int)$sedeId : null,
                     'proceso_solicitante' => $procesoId ? (int)$procesoId : null,
                     'coordinador_id' => $coordinadorId ? (int)$coordinadorId : null,
                 ]

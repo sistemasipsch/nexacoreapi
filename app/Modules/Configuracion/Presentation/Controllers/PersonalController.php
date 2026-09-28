@@ -64,6 +64,12 @@ class PersonalController extends Controller
             }
             $item = $this->actualizarUseCase->execute($id, $data);
             if (!$item) return ApiResponse::error('No encontrado', 404);
+            
+            if (array_key_exists('sede_id', $data)) {
+                \App\Models\CpEntregaActivosFijos::where('personal_id', $id)
+                    ->update(['sede_id' => $data['sede_id'] ?: null]);
+            }
+
             return ApiResponse::success($item, 'Personal actualizado');
         } catch (\Exception $e) {
             return ApiResponse::error('Error al actualizar: ' . $e->getMessage(), 500);

@@ -60,6 +60,6 @@ class ActualizarPersonalUseCase
             $this->sincronizarUseCase->execute($item->id, $nuevaFirmaPath, $antiguaFirma);
         }
 
-        return $item->fresh()->load('cargo');
+        return $item->fresh()->load(['cargo', 'sede']);
     }
 }

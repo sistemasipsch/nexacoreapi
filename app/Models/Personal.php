@@ -14,11 +14,17 @@ class Personal extends Model
         'cedula',
         'telefono',
         'cargo_id',
+        'sede_id',
         'firma',
         'estado',
     ];
 
     protected $appends = ['firma_url'];
+
+    public function setSedeIdAttribute($value)
+    {
+        $this->attributes['sede_id'] = !empty($value) ? $value : null;
+    }
 
     public function getFirmaUrlAttribute()
     {
@@ -30,6 +36,11 @@ class Personal extends Model
         }
         $path = ltrim(str_replace('storage/', '', $this->firma), '/');
         return url('storage/' . $path);
+    }
+
+    public function sede()
+    {
+        return $this->belongsTo(Sede::class, 'sede_id');
     }
 
     public function cargo()
