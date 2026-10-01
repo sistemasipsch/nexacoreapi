@@ -38,6 +38,8 @@ class ExportarCronogramaMantenimientoEquiposExcelUseCase
             $sheet->setCellValue('D2', 'CRONOGRAMA DE MANTENIMIENTOS' . $tipoLabel . ' - TODAS LAS SEDES');
         }
 
+        $sheet->setCellValue('N8', " PARA CUMPLIMIENTO\n    01 PROXIMOS A VENCERSE\n    02 NUEVO NO APLICA\n    03 REALIZADO");
+
         $row = 9; // Fila de inicio
 
         if (count($dtos) === 0) {

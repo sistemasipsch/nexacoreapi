@@ -50,30 +50,35 @@ class ObtenerCronogramaExportacionDTOUseCase
 
         foreach ($equipos as $equipo) {
             $mantenimientos = $equipo->mantenimientos;
-            $ultimoMantenimiento = $mantenimientos->first();
+            $mantenimientosCompletados = $mantenimientos->where('estado', 'completado');
+            $ultimoMantenimientoCompletado = $mantenimientosCompletados->sortByDesc('fecha')->first();
+            $proximoMantenimientoPendiente = $mantenimientos->where('estado', 'pendiente')->sortBy('fecha')->first();
             
-            // Fechas específicas
-            $manto2024 = $mantenimientos->filter(function($m) {
+            // 2024: Último mantenimiento realizado en 2024
+            $manto2024 = $mantenimientosCompletados->filter(function($m) {
                 if (!$m->fecha) return false;
-                $f = Carbon::parse($m->fecha);
-                return $f->year === 2024;
-            })->first();
+                return Carbon::parse($m->fecha)->year === 2024;
+            })->sortByDesc('fecha')->first();
 
-            $manto2025II = $mantenimientos->filter(function($m) {
+            // 2025: Último mantenimiento realizado en 2025
+            $manto2025 = $mantenimientosCompletados->filter(function($m) {
                 if (!$m->fecha) return false;
-                $f = Carbon::parse($m->fecha);
-                return $f->year === 2025 && $f->month >= 7 && $f->month <= 12;
-            })->first();
+                return Carbon::parse($m->fecha)->year === 2025;
+            })->sortByDesc('fecha')->first();
 
-            $manto2026I = $mantenimientos->filter(function($m) {
+            // 2026: PRIMER mantenimiento realizado en 2026 (el más temprano de este año)
+            $manto2026 = $mantenimientosCompletados->filter(function($m) {
                 if (!$m->fecha) return false;
-                $f = Carbon::parse($m->fecha);
-                return $f->year === 2026 && $f->month >= 1 && $f->month <= 6;
-            })->first();
+                return Carbon::parse($m->fecha)->year === 2026;
+            })->sortBy('fecha')->first();
+
+            $fecha2024Str = $manto2024 ? Carbon::parse($manto2024->fecha)->format('Y-m-d') : 'N/A';
+            $fecha2025Str = $manto2025 ? Carbon::parse($manto2025->fecha)->format('Y-m-d') : ($equipo->fecha_ingreso && Carbon::parse($equipo->fecha_ingreso)->year === 2025 ? Carbon::parse($equipo->fecha_ingreso)->format('Y-m-d') : 'N/A');
+            $fecha2026Str = $manto2026 ? Carbon::parse($manto2026->fecha)->format('Y-m-d') : 'N/A';
 
             $fechaBase = null;
-            if ($ultimoMantenimiento && $ultimoMantenimiento->fecha) {
-                $fechaBase = Carbon::parse($ultimoMantenimiento->fecha);
+            if ($ultimoMantenimientoCompletado && $ultimoMantenimientoCompletado->fecha) {
+                $fechaBase = Carbon::parse($ultimoMantenimientoCompletado->fecha);
             } elseif ($equipo->fecha_ingreso) {
                 $fechaBase = Carbon::parse($equipo->fecha_ingreso);
             }
@@ -81,11 +86,13 @@ class ObtenerCronogramaExportacionDTOUseCase
             $diasStr = 'N/A';
             $vencimiento = 'SIN MANTENIMIENTO';
             $proximaFechaStr = 'N/A';
-            $paraCumplimiento = '01 PENDIENTE';
+            $paraCumplimiento = '01 PROXIMOS A VENCERSE';
             $diasRestantes = 0;
 
             if ($fechaBase) {
-                $proximaFecha = $fechaBase->copy()->addDays($diasCumplimiento);
+                $proximaFecha = $proximoMantenimientoPendiente && $proximoMantenimientoPendiente->fecha 
+                    ? Carbon::parse($proximoMantenimientoPendiente->fecha) 
+                    : $fechaBase->copy()->addDays($diasCumplimiento);
                 $proximaFechaStr = $proximaFecha->format('Y-m-d');
                 
                 $diasDiff = $fechaBase->diffInDays($hoy);
@@ -95,20 +102,20 @@ class ObtenerCronogramaExportacionDTOUseCase
 
                 if ($hoy->gt($proximaFecha)) {
                     $vencimiento = 'VENCIDO';
-                    $paraCumplimiento = '01 PENDIENTE';
+                    $paraCumplimiento = '01 PROXIMOS A VENCERSE';
                 } elseif ($proximaFecha->copy()->subDays(30)->lte($hoy)) {
                     $vencimiento = 'POR VENCER';
-                    $paraCumplimiento = '01 PENDIENTE';
+                    $paraCumplimiento = '01 PROXIMOS A VENCERSE';
                 } else {
                     $vencimiento = 'AL DÍA';
-                    $paraCumplimiento = $ultimoMantenimiento ? '03 REALIZADO' : '02 NUEVO NO APLICA';
+                    $paraCumplimiento = $ultimoMantenimientoCompletado ? '03 REALIZADO' : '01 PROXIMOS A VENCERSE';
                 }
             } else {
                 // Sin fecha de ingreso ni mantenimientos
-                $paraCumplimiento = '01 PENDIENTE';
+                $paraCumplimiento = '01 PROXIMOS A VENCERSE';
             }
 
-            $estadoMantenimiento = $ultimoMantenimiento ? ($ultimoMantenimiento->estado ?? 'pendiente') : 'sin_registro';
+            $estadoMantenimiento = $ultimoMantenimientoCompletado ? 'COMPLETADO' : ($proximoMantenimientoPendiente ? 'PENDIENTE' : 'SIN_REGISTRO');
 
             $dtos[] = new CronogramaMantenimientoDTO(
                 equipoComputo: $equipo->nombre_equipo ?? '',
@@ -123,15 +130,15 @@ class ObtenerCronogramaExportacionDTOUseCase
                 procesador: optional($equipo->caracteristicasTecnicas)->procesador ?? '',
                 memoriaRam: optional($equipo->caracteristicasTecnicas)->memoria_ram ?? '',
                 paraCumplimiento: $paraCumplimiento,
-                fechaUltimoMantenimiento2024: $manto2024 ? Carbon::parse($manto2024->fecha)->format('Y-m-d') : 'N/A',
+                fechaUltimoMantenimiento2024: $fecha2024Str,
                 hoy: $hoy->format('Y-m-d'),
                 dias: $diasStr,
                 vencimiento: $vencimiento,
                 fechaProgramada: $proximaFechaStr,
-                ejecucion: $ultimoMantenimiento ? 'SI' : 'NO',
-                fechaUltimoMantenimiento2025IISemestre: $manto2025II ? Carbon::parse($manto2025II->fecha)->format('Y-m-d') : 'N/A',
-                fechaUltimoMantenimiento2026ISemestre: $manto2026I ? Carbon::parse($manto2026I->fecha)->format('Y-m-d') : 'N/A',
-                estadoMantenimiento: mb_strtoupper($estadoMantenimiento)
+                ejecucion: $ultimoMantenimientoCompletado ? 'SI' : 'NO',
+                fechaUltimoMantenimiento2025IISemestre: $fecha2025Str,
+                fechaUltimoMantenimiento2026ISemestre: $fecha2026Str,
+                estadoMantenimiento: $estadoMantenimiento
             );
         }
 
