@@ -5,7 +5,7 @@ use App\Models\Mantenimiento;
 
 class ObtenerMantenimientoUseCase
 {
-    protected $relations = ['sede', 'coordinador', 'revisador', 'creador'];
+    protected $relations = ['sede', 'coordinador', 'revisador', 'creador', 'equipoInfraestructura'];
 
     public function execute($id)
     {

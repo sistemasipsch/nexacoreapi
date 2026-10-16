@@ -52,9 +52,11 @@ class MantenimientoController extends Controller
         $request->validate([
             'titulo' => 'required|string|max:255',
             'codigo' => 'nullable|string|max:100',
+            'serial' => 'nullable|string|max:100',
             'modelo' => 'nullable|string|max:100',
             'dependencia' => 'nullable|string|max:255',
             'sede_id' => 'nullable|exists:sedes,id',
+            'equipo_infraestructura_id' => 'nullable|exists:inventario_infraestructura,id',
             'coordinador_id' => 'nullable|exists:usuarios,id',
             'imagen' => 'required|file|image|max:5120',
             'imagen2' => 'nullable|file|image|max:5120',
@@ -84,9 +86,11 @@ class MantenimientoController extends Controller
         $request->validate([
             'titulo' => 'nullable|string|max:255',
             'codigo' => 'nullable|string|max:100',
+            'serial' => 'nullable|string|max:100',
             'modelo' => 'nullable|string|max:100',
             'dependencia' => 'nullable|string|max:255',
             'sede_id' => 'nullable|exists:sedes,id',
+            'equipo_infraestructura_id' => 'nullable|exists:inventario_infraestructura,id',
             'coordinador_id' => 'nullable|exists:usuarios,id',
             'imagen' => 'nullable|file|image|max:5120',
             'imagen2' => 'nullable|file|image|max:5120',

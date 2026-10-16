@@ -26,6 +26,7 @@ class DatabaseSeeder extends Seeder
             SedeSeeder::class,
             RolSeeder::class,
             UsuarioSeeder::class,
+            InfraEquipoSeeder::class,
         ]);
     }
 }

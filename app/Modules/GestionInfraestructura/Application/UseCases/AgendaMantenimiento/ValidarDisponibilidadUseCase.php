@@ -11,8 +11,9 @@ class ValidarDisponibilidadUseCase
         $inicio = Carbon::parse($fechaInicio);
         $fin    = Carbon::parse($fechaFin);
 
-        if ($inicio->isPast() && $inicio->diffInMinutes(Carbon::now()) > 5) {
-            return 'La fecha de inicio no puede ser en el pasado.';
+        // Permitir agendamientos del día actual y fechas futuras
+        if ($inicio->isBefore(Carbon::today())) {
+            return 'La fecha de inicio no puede ser anterior al día de hoy.';
         }
 
         if ($fin->lessThanOrEqualTo($inicio)) {

@@ -8,6 +8,7 @@ use App\Services\PermissionService;
 use Illuminate\Http\Request;
 use OpenApi\Attributes as OA;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Http;
 use App\Modules\GestionSistemas\Presentation\Requests\CrearPcEquipoRequest;
 use App\Modules\GestionSistemas\Presentation\Requests\ActualizarPcEquipoRequest;
 
@@ -56,6 +57,20 @@ class PcEquipoController extends Controller
         $filename = basename($filename);
         $path = storage_path('app/public/pcEquipos/' . $filename);
         
+        if (!file_exists($path)) {
+            // Si la imagen no está en local (ej. migración/backup de BD), descargarla de producción y cachearla localmente
+            $remoteUrl = "https://nexacoreapi.clinicalhouse.co/public/storage/pcEquipos/" . $filename;
+            try {
+                $response = Http::timeout(6)->get($remoteUrl);
+                if ($response->successful()) {
+                    @mkdir(dirname($path), 0755, true);
+                    file_put_contents($path, $response->body());
+                }
+            } catch (\Throwable $e) {
+                // Silencioso si no hay conexión o no existe en remoto
+            }
+        }
+
         if (file_exists($path)) {
             $mimeType = mime_content_type($path) ?: 'image/jpeg';
             return response()->file($path, [

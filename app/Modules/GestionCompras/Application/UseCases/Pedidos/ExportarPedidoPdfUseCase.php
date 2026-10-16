@@ -48,6 +48,7 @@ class ExportarPedidoPdfUseCase extends CpPedidoExport
         $this->llenarItems($items);
         $this->insertarFirmas($pedido);
         $this->responsableProceso($pedido);
+        $this->configurarPagina();
 
         $proceso     = $this->sanitize($pedido->solicitante?->nombre ?? 'SIN_PROCESO');
         $sede        = $this->sanitize($pedido->sede?->nombre ?? 'SIN_SEDE');

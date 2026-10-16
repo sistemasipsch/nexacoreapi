@@ -13,7 +13,7 @@ use OpenApi\Attributes as OA;
     )
 )]
 #[OA\Server(
-    url: '/api',
+    url: '/',
     description: 'API Server'
 )]
 #[OA\SecurityScheme(

@@ -12,9 +12,12 @@ class Mantenimiento extends Model
     protected $fillable = [
         'titulo',
         'codigo',
+        'serial',
         'modelo',
         'dependencia',
         'sede_id',
+        'area_id',
+        'equipo_infraestructura_id',
         'coordinador_id',
         'imagen',
         'descripcion',
@@ -58,5 +61,10 @@ class Mantenimiento extends Model
     public function agendas()
     {
         return $this->hasMany(AgendaMantenimiento::class, 'mantenimiento_id');
+    }
+
+    public function equipoInfraestructura()
+    {
+        return $this->belongsTo(InfraEquipo::class, 'equipo_infraestructura_id');
     }
 }

@@ -6,7 +6,7 @@ use App\Modules\GestionInfraestructura\Application\DTOs\Mantenimiento\FiltroMant
 
 class ListarMantenimientosUseCase
 {
-    protected $relations = ['sede', 'coordinador', 'revisador', 'creador'];
+    protected $relations = ['sede', 'coordinador', 'revisador', 'creador', 'equipoInfraestructura'];
 
     public function execute(?FiltroMantenimientosDTO $dto = null)
     {

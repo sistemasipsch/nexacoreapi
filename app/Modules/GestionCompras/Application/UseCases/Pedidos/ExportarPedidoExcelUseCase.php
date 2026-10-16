@@ -45,6 +45,7 @@ class ExportarPedidoExcelUseCase extends CpPedidoExport
         $this->llenarItems($items);
         $this->insertarFirmas($pedido);
         $this->responsableProceso($pedido);
+        $this->configurarPagina();
 
         // Build filename
         $proceso = $this->sanitize($pedido->solicitante?->nombre ?? 'SIN_PROCESO');

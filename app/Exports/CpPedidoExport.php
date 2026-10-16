@@ -72,10 +72,6 @@ class CpPedidoExport
     {
         $sheet = $this->sheet;
 
-        foreach (['B', 'C', 'I', 'J'] as $col) {
-            $sheet->getColumnDimension($col)->setAutoSize(true);
-        }
-
         $count = 0;
         foreach ($items as $i => $item) {
             $row = $startRow + $i;
@@ -290,4 +286,29 @@ class CpPedidoExport
         // 2. Permitir solo letras ascii, números, espacios, puntos y guiones
         return preg_replace('/[^a-zA-Z0-9_\-\. ]/', '_', $value);
     }
+
+    // ─── Configuración de Página ──────────────────────────────
+    protected function configurarPagina(): void
+    {
+        $sheet = $this->sheet;
+        $lastRow = 42 + $this->extra;
+        $sheet->getPageSetup()->setPrintArea("A2:K{$lastRow}");
+        $sheet->getPageSetup()->setPaperSize(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::PAPERSIZE_LETTER);
+        $sheet->getPageSetup()->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_PORTRAIT);
+        $sheet->getPageSetup()->setFitToPage(true);
+        $sheet->getPageSetup()->setFitToWidth(1);
+        if ($this->extra > 0) {
+            $sheet->getPageSetup()->setFitToHeight(0);
+        } else {
+            $sheet->getPageSetup()->setFitToHeight(1);
+        }
+        $sheet->getPageSetup()->setHorizontalCentered(true);
+        $sheet->getPageSetup()->setVerticalCentered(false);
+
+        $sheet->getPageMargins()->setTop(0.35);
+        $sheet->getPageMargins()->setBottom(0.35);
+        $sheet->getPageMargins()->setLeft(0.35);
+        $sheet->getPageMargins()->setRight(0.35);
+    }
 }
+

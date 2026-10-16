@@ -6,7 +6,7 @@ use App\Modules\GestionInfraestructura\Application\DTOs\Mantenimiento\FiltroMant
 
 class ObtenerMantenimientosPorCoordinadorUseCase
 {
-    protected $relations = ['sede', 'coordinador', 'revisador', 'creador'];
+    protected $relations = ['sede', 'coordinador', 'revisador', 'creador', 'equipoInfraestructura'];
 
     public function execute($userId, ?FiltroMantenimientosDTO $dto = null)
     {

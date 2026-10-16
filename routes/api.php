@@ -131,7 +131,20 @@ Route::group(['middleware' => 'api'], function () {
         Route::get('agenda-mantenimientos/disponibilidad', [App\Modules\GestionInfraestructura\Presentation\Controllers\AgendaMantenimientoController::class, 'getDisponibilidad']);
         Route::get('agenda-mantenimientos/mantenimiento/{mantenimiento_id}', [App\Modules\GestionInfraestructura\Presentation\Controllers\AgendaMantenimientoController::class, 'getByMantenimiento']);
         Route::apiResource('agenda-mantenimientos', App\Modules\GestionInfraestructura\Presentation\Controllers\AgendaMantenimientoController::class);
+
+        // Equipos de Infraestructura Routes (Aires y otros)
+        Route::get('infraestructura/equipos', [App\Modules\GestionInfraestructura\Presentation\Controllers\InfraEquipoController::class, 'index']);
+        Route::post('infraestructura/equipos', [App\Modules\GestionInfraestructura\Presentation\Controllers\InfraEquipoController::class, 'store']);
+        Route::get('infraestructura/equipos/{id}', [App\Modules\GestionInfraestructura\Presentation\Controllers\InfraEquipoController::class, 'show']);
+        Route::match(['put', 'post'], 'infraestructura/equipos/{id}', [App\Modules\GestionInfraestructura\Presentation\Controllers\InfraEquipoController::class, 'update']);
+        Route::delete('infraestructura/equipos/{id}', [App\Modules\GestionInfraestructura\Presentation\Controllers\InfraEquipoController::class, 'destroy']);
+        Route::post('infraestructura/equipos/{id}/traslado', [App\Modules\GestionInfraestructura\Presentation\Controllers\InfraEquipoController::class, 'registrarTraslado']);
     });
+});
+
+// Rutas Públicas de Archivos e Imágenes de Infraestructura
+Route::prefix('infraestructura')->group(function () {
+    Route::get('equipos/imagen/{filename}', [App\Modules\GestionInfraestructura\Presentation\Controllers\InfraEquipoController::class, 'servirImagen']);
 });
 
 // Rutas del Dominio: Buzón de Sugerencias

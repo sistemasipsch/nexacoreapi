@@ -38,6 +38,10 @@ class AuthRepository
      */
     public function logout()
     {
-        Auth::guard('api')->logout();
+        try {
+            Auth::guard('api')->logout();
+        } catch (\Throwable $e) {
+            // Si el token ya expiró o no es válido, se ignora la excepción para completar el logout
+        }
     }
 }
