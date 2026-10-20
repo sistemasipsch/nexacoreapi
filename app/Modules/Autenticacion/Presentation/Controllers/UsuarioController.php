@@ -108,19 +108,46 @@ class UsuarioController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'nombre_completo' => 'nullable|string|max:100',
-            'usuario' => 'nullable|string|max:50|unique:usuarios,usuario',
-            'contrasena' => 'nullable|string|min:6',
-            'rol_id' => 'nullable|exists:rol,id',
-            'correo' => 'nullable|email|max:60',
-            'telefono' => 'nullable|string|max:15',
+            'nombre_completo' => 'required|string|min:6|max:100',
+            'usuario' => ['required', 'string', 'min:3', 'max:50', 'regex:/@/', 'unique:usuarios,usuario'],
+            'contrasena' => 'required|string|min:6',
+            'rol_id' => 'required|exists:rol,id',
+            'correo' => 'required|email|max:60',
+            'telefono' => ['required', 'string', 'regex:/^\d{10,15}$/'],
             'estado' => 'boolean',
-            'sede_id' => 'nullable|exists:sedes,id',
-            'firma_digital' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'sede_id' => 'required|exists:sedes,id',
+            'firma_digital' => 'nullable',
+        ], [
+            'nombre_completo.required' => 'El nombre completo (nombres y apellidos) es obligatorio.',
+            'nombre_completo.min' => 'El nombre completo debe tener al menos 6 caracteres (nombres y apellidos).',
+            'usuario.required' => 'El identificador de usuario es obligatorio.',
+            'usuario.regex' => 'El identificador de usuario debe incluir un "@" (ej. usuario@house).',
+            'usuario.unique' => 'El nombre de usuario ya está registrado en el sistema.',
+            'contrasena.required' => 'La contraseña es obligatoria para el nuevo usuario.',
+            'contrasena.min' => 'La contraseña debe contener al menos 6 caracteres.',
+            'rol_id.required' => 'Debe asignar un rol al usuario.',
+            'correo.required' => 'El correo electrónico es obligatorio.',
+            'correo.email' => 'El formato del correo electrónico no es válido.',
+            'telefono.required' => 'El teléfono de contacto es obligatorio.',
+            'telefono.regex' => 'El teléfono debe contener únicamente números (entre 10 y 15 dígitos, sin puntos ni caracteres especiales).',
+            'sede_id.required' => 'Debe asignar una sede al usuario.',
         ]);
 
+        // Normalización de mayúsculas y minúsculas
+        $validated['nombre_completo'] = mb_strtoupper(trim($validated['nombre_completo']), 'UTF-8');
+        $validated['usuario'] = strtolower(trim($validated['usuario']));
+        $validated['correo'] = strtolower(trim($validated['correo']));
+        $validated['telefono'] = preg_replace('/\D/', '', $validated['telefono']);
+
+        // Manejo y validación de firma obligatoria en creación
         if ($request->hasFile('firma_digital')) {
             $validated['firma_file'] = $request->file('firma_digital');
+        } elseif ($request->filled('firma_digital') && is_string($request->input('firma_digital')) && str_starts_with($request->input('firma_digital'), 'data:image')) {
+            $validated['firma_digital'] = $request->input('firma_digital');
+        } elseif ($request->filled('firma') && is_string($request->input('firma')) && str_starts_with($request->input('firma'), 'data:image')) {
+            $validated['firma_digital'] = $request->input('firma');
+        } else {
+            return ApiResponse::error('La firma digital es obligatoria para registrar al usuario. Puede dibujarla o subir una imagen.', 422);
         }
 
         $usuario = $this->crearUsuarioUseCase->execute($validated);
@@ -133,19 +160,48 @@ class UsuarioController extends Controller
     public function update(Request $request, $id)
     {
         $validated = $request->validate([
-            'nombre_completo' => 'nullable|string|max:100',
-            'usuario' => ['nullable', 'string', 'max:50', Rule::unique('usuarios')->ignore($id)],
+            'nombre_completo' => 'sometimes|required|string|min:6|max:100',
+            'usuario' => ['sometimes', 'required', 'string', 'min:3', 'max:50', 'regex:/@/', Rule::unique('usuarios')->ignore($id)],
             'contrasena' => 'nullable|string|min:6',
-            'rol_id' => 'nullable|exists:rol,id',
-            'correo' => 'nullable|email|max:60',
-            'telefono' => 'nullable|string|max:15',
-            'estado' => 'boolean',
-            'sede_id' => 'nullable|exists:sedes,id',
-            'firma_digital' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'rol_id' => 'sometimes|required|exists:rol,id',
+            'correo' => 'sometimes|required|email|max:60',
+            'telefono' => ['sometimes', 'required', 'string', 'regex:/^\d{10,15}$/'],
+            'estado' => 'sometimes|boolean',
+            'sede_id' => 'sometimes|required|exists:sedes,id',
+            'firma_digital' => 'nullable',
+        ], [
+            'nombre_completo.required' => 'El nombre completo es obligatorio.',
+            'nombre_completo.min' => 'El nombre completo debe tener al menos 6 caracteres (nombres y apellidos).',
+            'usuario.required' => 'El identificador de usuario es obligatorio.',
+            'usuario.regex' => 'El identificador de usuario debe incluir un "@" (ej. usuario@house).',
+            'usuario.unique' => 'El nombre de usuario ya está en uso.',
+            'rol_id.required' => 'Debe asignar un rol al usuario.',
+            'correo.required' => 'El correo electrónico es obligatorio.',
+            'correo.email' => 'El formato del correo electrónico no es válido.',
+            'telefono.required' => 'El teléfono de contacto es obligatorio.',
+            'telefono.regex' => 'El teléfono debe contener únicamente números (entre 10 y 15 dígitos, sin puntos ni caracteres especiales).',
+            'sede_id.required' => 'Debe asignar una sede al usuario.',
         ]);
+
+        if (isset($validated['nombre_completo'])) {
+            $validated['nombre_completo'] = mb_strtoupper(trim($validated['nombre_completo']), 'UTF-8');
+        }
+        if (isset($validated['usuario'])) {
+            $validated['usuario'] = strtolower(trim($validated['usuario']));
+        }
+        if (isset($validated['correo'])) {
+            $validated['correo'] = strtolower(trim($validated['correo']));
+        }
+        if (isset($validated['telefono'])) {
+            $validated['telefono'] = preg_replace('/\D/', '', $validated['telefono']);
+        }
 
         if ($request->hasFile('firma_digital')) {
             $validated['firma_file'] = $request->file('firma_digital');
+        } elseif ($request->filled('firma_digital') && is_string($request->input('firma_digital')) && str_starts_with($request->input('firma_digital'), 'data:image')) {
+            $validated['firma_digital'] = $request->input('firma_digital');
+        } elseif ($request->filled('firma') && is_string($request->input('firma')) && str_starts_with($request->input('firma'), 'data:image')) {
+            $validated['firma_digital'] = $request->input('firma');
         }
 
         try {
@@ -155,17 +211,21 @@ class UsuarioController extends Controller
             }
             return ApiResponse::success($usuario, 'Usuario actualizado exitosamente');
         } catch (\Exception $e) {
-            return ApiResponse::error('Error al actualizar usuario: ' . $e->getMessage(), 404);
+            return ApiResponse::error('Error al actualizar usuario: ' . $e->getMessage(), 400);
         }
     }
 
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         try {
-            $this->eliminarUsuarioUseCase->execute($id);
-            return ApiResponse::success(null, 'Usuario eliminado exitosamente');
+            $forceDeactivate = $request->boolean('desactivar');
+            $resultado = $this->eliminarUsuarioUseCase->execute($id, $forceDeactivate);
+
+            return ApiResponse::success($resultado, $resultado['mensaje'] ?? 'Operación realizada exitosamente');
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return ApiResponse::error('Usuario no encontrado', 404);
         } catch (\Exception $e) {
-            return ApiResponse::error('Error al eliminar usuario', 404);
+            return ApiResponse::error($e->getMessage(), 400);
         }
     }
 

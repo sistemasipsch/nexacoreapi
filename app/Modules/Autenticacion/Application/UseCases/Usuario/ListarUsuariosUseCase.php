@@ -8,6 +8,6 @@ class ListarUsuariosUseCase
 {
     public function execute()
     {
-        return Usuario::with(['rol', 'sede'])->get();
+        return Usuario::with(['rol', 'sede'])->orderBy('id', 'desc')->get();
     }
 }
