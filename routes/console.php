@@ -17,3 +17,7 @@ Schedule::command('pedidos:procesar-programados')->everyMinute()->withoutOverlap
 
 // Monitoreo de Infraestructura IPS (IP Pública y PC Vacunación con ráfagas de 3 pings)
 Schedule::command('monitor:infraestructura')->everyFiveMinutes();
+
+// Monitoreo de KubApp API (Socket TCP y HTTP)
+Schedule::command('monitor:kubapp')->everyFiveMinutes();
+

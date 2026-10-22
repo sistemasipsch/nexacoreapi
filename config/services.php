@@ -37,6 +37,8 @@ return [
 
     'kubapp' => [
         'url' => env('KUBAPP_API_URL', 'http://190.145.135.122:8090'),
+        'server_api' => env('SERVIDOR_KUBAPP_API', '190.145.135.122:3006'),
+        'alert_emails' => env('KUBAPP_ALERT_EMAILS', 'junior.arias02yt@gmail.com,sistemas@clinicalhouse.co'),
         'timeout' => env('KUBAPP_TIMEOUT', 10),
     ],
 
