@@ -46,4 +46,10 @@ return [
         'alert_email' => env('MICROSERVICIO_ALERT_EMAIL', 'junior.arias02yt@gmail.com'),
     ],
 
+    'monitoreo' => [
+        'alert_emails' => env('MONITOR_ALERT_EMAILS', 'nicoleperez0958@gmail.com'),
+        'ip_publica' => env('MONITOR_HOST_IP_PUBLICA', '190.145.135.122'),
+        'pc_vacunacion' => env('MONITOR_HOST_PC_VACUNACION', '192.168.0.240'),
+    ],
+
 ];

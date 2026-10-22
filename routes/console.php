@@ -14,5 +14,6 @@ Schedule::command('db:backup-php')->daily();
 
 // Programación para procesar los pedidos programados (por minuto con prevención de solapamiento)
 Schedule::command('pedidos:procesar-programados')->everyMinute()->withoutOverlapping();
-Schedule::command('monitor:microservice')->everyFiveMinutes();
-Schedule::command('monitor:sitrad')->everyFiveMinutes();
+
+// Monitoreo de Infraestructura IPS (IP Pública y PC Vacunación con ráfagas de 3 pings)
+Schedule::command('monitor:infraestructura')->everyFiveMinutes();
