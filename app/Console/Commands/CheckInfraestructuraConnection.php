@@ -37,10 +37,10 @@ class CheckInfraestructuraConnection extends Command
             return;
         }
 
-        $hosts = [
-            'Servidor Principal (IP Pública IPS)' => config('services.monitoreo.ip_publica', '190.145.135.122'),
-            'PC Vacunación' => config('services.monitoreo.pc_vacunacion', '192.168.0.240'),
-        ];
+        $hosts = array_filter([
+            'Servidor Principal (IP Pública IPS)' => config('services.monitoreo.ip_publica', env('MONITOR_HOST_IP_PUBLICA', '190.145.135.122')),
+            'PC Vacunación' => config('services.monitoreo.pc_vacunacion', env('MONITOR_HOST_PC_VACUNACION', '')),
+        ]);
 
         $this->info("Iniciando monitoreo de infraestructura para " . count($hosts) . " objetivos...");
 
