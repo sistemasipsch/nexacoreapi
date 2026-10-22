@@ -23,6 +23,7 @@ use App\Modules\GestionCompras\Application\UseCases\Pedidos\ObtenerEstadisticasP
 
 use App\Modules\GestionCompras\Application\UseCases\Pedidos\ExportarPedidoExcelUseCase;
 use App\Modules\GestionCompras\Application\UseCases\Pedidos\ExportarPedidoPdfUseCase;
+use App\Modules\Shared\Domain\Contracts\ExcelToPdfConverterInterface;
 use App\Exports\CpConsolidadoExport;
 use App\Responses\ApiResponse;
 use Illuminate\Http\Request;
@@ -45,7 +46,8 @@ class CpPedidoController extends Controller
         protected CalcularTiempoEntregaPedidoUseCase $calcularTiempoEntregaUseCase,
         protected ExportarPedidoExcelUseCase $exportarExcelUseCase,
         protected ExportarPedidoPdfUseCase $exportarPdfUseCase,
-        protected ObtenerEstadisticasPedidoUseCase $obtenerEstadisticasUseCase
+        protected ObtenerEstadisticasPedidoUseCase $obtenerEstadisticasUseCase,
+        protected ExcelToPdfConverterInterface $pdfConverter
     ) {}
 
     /**
@@ -691,6 +693,29 @@ class CpPedidoController extends Controller
             return $export->generate($request->all());
         } catch (\Exception $e) {
             return ApiResponse::error('Error al exportar consolidado: ' . $e->getMessage(), 500);
+        }
+    }
+
+    #[OA\Post(
+        path: '/api/gestion-compras/cp-pedidos/exportar-consolidado-pdf',
+        tags: ['Pedidos de Compra'],
+        summary: 'Exportar informe consolidado a PDF',
+        description: 'Genera y descarga un archivo PDF del informe consolidado de pedidos con filtros.',
+        security: [['bearerAuth' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Archivo PDF descargado'),
+            new OA\Response(response: 500, description: 'Error del servidor')
+        ]
+    )]
+    public function exportConsolidadoPdf(Request $request)
+    {
+        $this->permissionService->authorize('cp_pedido.listar');
+
+        try {
+            $export = new CpConsolidadoExport();
+            return $export->generatePdf($request->all());
+        } catch (\Exception $e) {
+            return ApiResponse::error('Error al exportar consolidado a PDF: ' . $e->getMessage(), 500);
         }
     }
  

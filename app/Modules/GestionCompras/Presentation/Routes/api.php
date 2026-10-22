@@ -35,6 +35,7 @@ Route::prefix('gestion-compras')->middleware('auth:api')->group(function () {
 
     // Pedidos
     Route::post('cp-pedidos/exportar-consolidado', [\App\Modules\GestionCompras\Presentation\Controllers\CpPedidoController::class, 'exportConsolidadoExcel']);
+    Route::post('cp-pedidos/exportar-consolidado-pdf', [\App\Modules\GestionCompras\Presentation\Controllers\CpPedidoController::class, 'exportConsolidadoPdf']);
     Route::apiResource('cp-pedidos', \App\Modules\GestionCompras\Presentation\Controllers\CpPedidoController::class);
     Route::post('cp-pedidos/{id}', [\App\Modules\GestionCompras\Presentation\Controllers\CpPedidoController::class, 'update']);
     Route::post('cp-pedidos/{id}/aprobar-compras', [\App\Modules\GestionCompras\Presentation\Controllers\CpPedidoController::class, 'aprobarCompras']);

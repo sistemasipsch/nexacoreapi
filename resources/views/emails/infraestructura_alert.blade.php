@@ -84,11 +84,14 @@
                 </tr>
             </table>
 
-            <h1 style="margin: 0 0 6px 0; font-size: 26px; font-weight: 800; letter-spacing: -0.5px; line-height: 1.2;">
+            <h1 style="margin: 0 0 6px 0; font-size: 24px; font-weight: 800; letter-spacing: -0.5px; line-height: 1.2;">
                 {{ $icon }} {{ $dispositivo }}
             </h1>
             <p style="margin: 0; font-size: 14px; color: rgba(255, 255, 255, 0.92); font-weight: 400;">
                 Host: <strong style="font-family: monospace; font-size: 15px;">{{ $host }}</strong>
+                @if(!empty($extraData['equipo_info']['area_sede']))
+                    &bull; {{ $extraData['equipo_info']['area_sede'] }}
+                @endif
             </p>
         </div>
 
@@ -104,6 +107,9 @@
             @if($status === 'down')
                 <p style="margin: 0 0 20px 0; font-size: 15px; line-height: 1.6; color: #334155;">
                     Se ha detectado una <strong>interrupción de conectividad</strong>. Se realizaron <strong>{{ $intentos }} intentos de ping consecutivos</strong> con tiempo de espera agotado sin obtener respuesta del equipo o enlace.
+                    @if(!empty($extraData['equipo_info']['responsable_nombre']))
+                        Esta alerta ha sido notificada al equipo de Sistemas y al funcionario responsable asignado en el inventario.
+                    @endif
                 </p>
             @elseif($status === 'still_down')
                 <p style="margin: 0 0 20px 0; font-size: 15px; line-height: 1.6; color: #334155;">
@@ -125,9 +131,34 @@
                 </div>
                 <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
                     <tr>
-                        <td style="padding: 6px 0; color: #64748b; width: 45%;">Dispositivo / Servicio:</td>
+                        <td style="padding: 6px 0; color: #64748b; width: 42%;">Dispositivo / Servicio:</td>
                         <td style="padding: 6px 0; color: #0f172a; font-weight: 600;">{{ $dispositivo }}</td>
                     </tr>
+                    @if(!empty($extraData['equipo_info']))
+                    <tr>
+                        <td style="padding: 6px 0; color: #64748b;">Área / Sede:</td>
+                        <td style="padding: 6px 0; color: #0f172a; font-weight: 500;">{{ $extraData['equipo_info']['area_sede'] }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 0; color: #64748b;">Responsable en Acta:</td>
+                        <td style="padding: 6px 0; color: #0f172a; font-weight: 600;">
+                            {{ $extraData['equipo_info']['responsable_nombre'] }}
+                            @if(!empty($extraData['equipo_info']['responsable_correo']))
+                                <div style="font-size: 12px; color: #475569; font-weight: normal; font-family: monospace; margin-top: 2px;">
+                                    {{ $extraData['equipo_info']['responsable_correo'] }}
+                                </div>
+                            @endif
+                        </td>
+                    </tr>
+                    @if(!empty($extraData['equipo_info']['acta_id']))
+                    <tr>
+                        <td style="padding: 6px 0; color: #64748b;">Acta de Entrega:</td>
+                        <td style="padding: 6px 0; color: #0f172a; font-size: 13px;">
+                            Acta #{{ $extraData['equipo_info']['acta_id'] }} @if(!empty($extraData['equipo_info']['fecha_entrega'])) ({{ $extraData['equipo_info']['fecha_entrega'] }}) @endif
+                        </td>
+                    </tr>
+                    @endif
+                    @endif
                     <tr>
                         <td style="padding: 6px 0; color: #64748b;">Dirección IP / Host:</td>
                         <td style="padding: 6px 0; color: #0f172a; font-family: monospace; font-weight: 600;">{{ $host }}</td>
