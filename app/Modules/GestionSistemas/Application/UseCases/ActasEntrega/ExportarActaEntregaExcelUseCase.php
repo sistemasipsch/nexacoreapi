@@ -44,16 +44,53 @@ class ExportarActaEntregaExcelUseCase
         $sheet->setCellValue('T10', 'TELEFONO: ' . $telefono);
         $sheet->setCellValue('T11', 'PROCESO: ' . $proceso);
 
-        // 2. Firmas disponibles con fallback
+        // 2. Firmas disponibles con fallback robusto verificado en disco
         $firmaEntrega = $acta->getRawOriginal('firma_entrega') ?? $acta->attributes['firma_entrega'] ?? null;
         $adminFallback = null;
-        $admin = Usuario::whereNotNull('firma_digital')->where('firma_digital', '!=', '')->first();
-        if ($admin) {
-            $adminFallback = $admin->getRawOriginal('firma_digital');
+
+        // Buscar firma válida de usuario que realmente exista en disco
+        $usuariosConFirma = Usuario::whereNotNull('firma_digital')->where('firma_digital', '!=', '')->get();
+        foreach ($usuariosConFirma as $u) {
+            $testPath = $this->resolveImagePath($u->getRawOriginal('firma_digital'));
+            if ($testPath && file_exists($testPath)) {
+                $adminFallback = $u->getRawOriginal('firma_digital');
+                break;
+            }
+        }
+
+        if (!$adminFallback) {
+            $defaultSistemas = 'signatures/nG7eo0GkSldiEnYs3xcxHAofCTyW1RW8jtBZAQZc.png';
+            if (file_exists(storage_path('app/public/' . $defaultSistemas))) {
+                $adminFallback = $defaultSistemas;
+            }
         }
 
         $firmaRecibe = $acta->getRawOriginal('firma_recibe') ?? $acta->attributes['firma_recibe'] ?? null;
-        $funcionarioFallback = optional($acta->funcionario)->getRawOriginal('firma') ?? optional($acta->funcionario)->firma ?? null;
+        $funcionarioFallback = null;
+
+        // Prioridad absoluta: Buscar en la tabla 'usuarios' la firma digital del usuario que recibe
+        if ($acta->funcionario) {
+            $uRecibe = method_exists($acta->funcionario, 'findUsuario') ? $acta->funcionario->findUsuario() : null;
+            if ($uRecibe && $uRecibe->getRawOriginal('firma_digital')) {
+                $cand = $uRecibe->getRawOriginal('firma_digital');
+                $test = $this->resolveImagePath($cand);
+                if ($test && file_exists($test)) {
+                    $funcionarioFallback = $cand;
+                }
+            }
+        }
+
+        if (!$funcionarioFallback && $acta->funcionario) {
+            $cand = $acta->funcionario->getRawOriginal('firma') ?? $acta->funcionario->firma ?? null;
+            if ($cand && $this->resolveImagePath($cand)) {
+                $funcionarioFallback = $cand;
+            }
+        }
+
+        // Si tenemos la firma digital del usuario en usuarios, SIEMPRE usar esa como prioridad absoluta
+        if ($funcionarioFallback) {
+            $firmaRecibe = $funcionarioFallback;
+        }
 
         // 3. Preparar lista de items (Equipo + Periféricos)
         $items = [];
@@ -126,7 +163,7 @@ class ExportarActaEntregaExcelUseCase
             $this->insertarFirma($sheet, $firmaEntrega, 'AD' . $currentRow, $adminFallback);
             $this->insertarFirma($sheet, $firmaRecibe, 'AG' . $currentRow, $funcionarioFallback);
 
-            // Ajustar estilos y ajuste de texto para evitar cortes
+            // Ajustar estilos y centrado manteniendo intacta la tipografía de la plantilla
             $r2 = $currentRow + 1;
             $sheet->getStyle("B{$currentRow}:E{$r2}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
             $sheet->getStyle("F{$currentRow}:N{$r2}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT)->setWrapText(true);
@@ -135,8 +172,6 @@ class ExportarActaEntregaExcelUseCase
             $sheet->getStyle("V{$currentRow}:Y{$r2}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)->setWrapText(true);
             $sheet->getStyle("Z{$currentRow}:AC{$r2}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)->setWrapText(true);
             $sheet->getStyle("AJ{$currentRow}:AK{$r2}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)->setWrapText(true);
-
-            $sheet->getStyle("B{$currentRow}:AK{$r2}")->getFont()->setSize(8.5);
 
             $currentRow += 2;
         }
@@ -158,11 +193,6 @@ class ExportarActaEntregaExcelUseCase
         }
         $sheet->setCellValue('B' . $obsRow, $obsTexto);
         $sheet->getStyle('B' . $obsRow)->getAlignment()->setWrapText(true)->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $sheet->getStyle('B' . $obsRow)->getFont()->setSize(8);
-
-        // Estilo cabecera funcionario
-        $sheet->getStyle('T7:AK11')->getFont()->setSize(8.5);
-        $sheet->getStyle('B7:S10')->getFont()->setSize(8.5);
 
         $fileName = 'acta_entrega_' . $acta->id . '_' . time() . '.xlsx';
         $exportDir = storage_path('app/public/exports');
@@ -217,7 +247,10 @@ class ExportarActaEntregaExcelUseCase
 
     private function insertarFirma($sheet, $path, $cell, $fallbackPath = null)
     {
-        $realPath = $this->resolveImagePath($path) ?? $this->resolveImagePath($fallbackPath);
+        $realPath = $this->resolveImagePath($path);
+        if (!$realPath || !file_exists($realPath)) {
+            $realPath = $this->resolveImagePath($fallbackPath);
+        }
 
         if ($realPath && file_exists($realPath)) {
             $drawing = new Drawing();
@@ -236,6 +269,10 @@ class ExportarActaEntregaExcelUseCase
     {
         if (!$path) {
             return null;
+        }
+
+        if (file_exists($path)) {
+            return $path;
         }
 
         // Base64 Data URI

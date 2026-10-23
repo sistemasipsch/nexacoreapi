@@ -14,6 +14,10 @@ use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use App\Modules\GestionSistemas\Application\UseCases\ActasEntrega\ExportarActaEntregaExcelUseCase;
 use App\Modules\GestionSistemas\Application\UseCases\ActasEntrega\ExportarActaEntregaPdfUseCase;
+use App\Modules\GestionSistemas\Application\UseCases\EquiposComputo\ExportarHojaVidaEquipoPdfUseCase;
+use App\Mail\ActaEntregaMail;
+use App\Models\Usuario;
+use Illuminate\Support\Facades\Mail;
 use OpenApi\Attributes as OA;
 use App\Modules\Shared\Domain\Contracts\ExcelToPdfConverterInterface;
 
@@ -86,7 +90,10 @@ class ActaEntregaController extends Controller
             });
         }
 
-        $entregas = $query->get();
+        $entregas = $query->get()->map(function ($entrega) {
+            $entrega->correo_sugerido = $this->resolverCorreoFuncionario($entrega);
+            return $entrega;
+        });
         return response()->json($entregas);
     }
 
@@ -153,8 +160,23 @@ class ActaEntregaController extends Controller
         $firmaGuardadaRecibePath = null;
         if ($request->input('usar_firma_guardada_recibe') === 'true' || (!$request->hasFile('firma_recibe') && empty($request->input('firma_recibe')))) {
             $personal = \App\Models\Personal::find($request->input('funcionario_id'));
-            if ($personal && $personal->firma) {
-                $firmaGuardadaRecibePath = ltrim(str_replace('storage/', '', $personal->firma), '/');
+            if ($personal) {
+                $usr = method_exists($personal, 'findUsuario') ? $personal->findUsuario() : null;
+                $rawFirma = null;
+                if ($usr && !empty($usr->getAttributes()['firma_digital'] ?? $usr->firma_digital)) {
+                    $rawFirma = $usr->getAttributes()['firma_digital'] ?? $usr->firma_digital;
+                } elseif (!empty($personal->firma)) {
+                    $rawFirma = $personal->firma;
+                }
+
+                if ($rawFirma) {
+                    if (str_starts_with($rawFirma, 'http://') || str_starts_with($rawFirma, 'https://')) {
+                        $parsed = parse_url($rawFirma, PHP_URL_PATH);
+                        $firmaGuardadaRecibePath = ltrim(preg_replace('#^/?storage/#', '', $parsed), '/');
+                    } else {
+                        $firmaGuardadaRecibePath = ltrim(str_replace(['public/', 'api/', 'storage/'], '', $rawFirma), '/');
+                    }
+                }
             }
         }
 
@@ -171,6 +193,10 @@ class ActaEntregaController extends Controller
 
         try {
             $acta = $this->crearUseCase->execute($dto);
+            $pcEntrega = \App\Models\PcEntrega::with(['funcionario', 'equipo'])->find($acta->getId());
+            $correoSugerido = $pcEntrega ? $this->resolverCorreoFuncionario($pcEntrega) : null;
+            $funcionarioNombre = $pcEntrega?->funcionario?->nombre ?? null;
+
             return response()->json([
                 'success' => true,
                 'message' => 'Acta de entrega creada con éxito.',
@@ -178,7 +204,9 @@ class ActaEntregaController extends Controller
                     'id' => $acta->getId(),
                     'equipo_id' => $acta->getEquipoId(),
                     'funcionario_id' => $acta->getFuncionarioId(),
-                    'fecha_entrega' => $acta->getFechaEntrega()
+                    'fecha_entrega' => $acta->getFechaEntrega(),
+                    'funcionario_nombre' => $funcionarioNombre,
+                    'correo_sugerido' => $correoSugerido,
                 ]
             ], 201);
         } catch (\Exception $e) {
@@ -281,7 +309,8 @@ class ActaEntregaController extends Controller
                 'firma_recibe' => $acta->firma_recibe_url,
                 'estado' => $acta->estado,
                 'devuelto' => $acta->devuelto,
-                'perifericos' => $perifericos
+                'perifericos' => $perifericos,
+                'correo_sugerido' => $this->resolverCorreoFuncionario($acta)
             ]
         ]);
     }
@@ -556,6 +585,175 @@ class ActaEntregaController extends Controller
                 'message' => $e->getMessage()
             ], 500);
         }
+    }
+
+    #[OA\Post(
+        path: '/api/gestion-sistemas/actas-entrega/{id}/enviar-correo',
+        summary: 'Envía el Acta de Entrega y Hoja de Vida técnica por correo al responsable',
+        tags: ['ActasEntrega']
+    )]
+    public function enviarCorreo(Request $request, int $id, ExcelToPdfConverterInterface $pdfConverter): JsonResponse
+    {
+        try {
+            $acta = \App\Models\PcEntrega::with([
+                'equipo.sede',
+                'equipo.area',
+                'equipo.responsable',
+                'funcionario.cargo'
+            ])->findOrFail($id);
+
+            $nombreFuncionario = optional($acta->funcionario)->nombre 
+                ?? optional($acta->equipo?->responsable)->nombre 
+                ?? 'Funcionario Responsable';
+
+            // 1. Determinar correo destinatario
+            $correoDestino = trim((string) $request->input('correo_destino'));
+
+            if (empty($correoDestino)) {
+                $correoDestino = (string) $this->resolverCorreoFuncionario($acta);
+            }
+
+            if (empty($correoDestino) || !filter_var($correoDestino, FILTER_VALIDATE_EMAIL)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No se encontró un correo electrónico válido para el funcionario. Por favor ingrese el correo de destino.',
+                    'funcionario_detectado' => $nombreFuncionario
+                ], 422);
+            }
+
+            // 2. Generar PDF de Acta de Entrega
+            $exportDir = storage_path('app/public/exports');
+            if (!file_exists($exportDir)) {
+                @mkdir($exportDir, 0777, true);
+            }
+
+            $useCaseActa = new ExportarActaEntregaPdfUseCase($pdfConverter);
+            $fileNameActa = $useCaseActa->execute($id);
+            $rutaPdfActa = $exportDir . '/' . $fileNameActa;
+
+            // 3. Generar PDF de Hoja de Vida del equipo si existe
+            $rutaPdfHojaVida = null;
+            $fileNameHV = null;
+            if (!empty($acta->equipo_id)) {
+                try {
+                    $useCaseHV = new ExportarHojaVidaEquipoPdfUseCase($pdfConverter);
+                    $fileNameHV = $useCaseHV->execute($acta->equipo_id);
+                    $rutaPdfHojaVida = $exportDir . '/' . $fileNameHV;
+                } catch (\Throwable $hvEx) {
+                    \Log::warning("No se pudo generar Hoja de Vida para equipo ID {$acta->equipo_id} al enviar correo: " . $hvEx->getMessage());
+                }
+            }
+
+            // 4. Enviar correo con ambos adjuntos
+            Mail::to($correoDestino)->send(new ActaEntregaMail(
+                $acta,
+                $acta->equipo,
+                $nombreFuncionario,
+                $rutaPdfActa,
+                $rutaPdfHojaVida
+            ));
+
+            return response()->json([
+                'success' => true,
+                'message' => "Acta de entrega y Hoja de vida enviadas exitosamente a {$correoDestino}.",
+                'data' => [
+                    'correo_enviado' => $correoDestino,
+                    'funcionario' => $nombreFuncionario,
+                    'adjunto_acta' => $fileNameActa,
+                    'adjunto_hoja_vida' => $fileNameHV
+                ]
+            ], 200);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Acta de entrega no encontrada.'
+            ], 404);
+        } catch (\Exception $e) {
+            \Log::error("Error enviando correo de acta de entrega ID {$id}: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al enviar correo del acta: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Resuelve inteligentemente el correo de un funcionario a partir de los datos del Acta y Usuarios.
+     */
+    private function resolverCorreoFuncionario(\App\Models\PcEntrega $acta): ?string
+    {
+        $funcionario = $acta->funcionario;
+        if (!$funcionario) {
+            $funcionario = $acta->equipo?->responsable;
+        }
+
+        if (!$funcionario) {
+            return null;
+        }
+
+        // 0. Correo resuelto del modelo si ya está disponible
+        if (!empty($funcionario->correo) && filter_var($funcionario->correo, FILTER_VALIDATE_EMAIL)) {
+            return $funcionario->correo;
+        }
+
+        // 1. Por cédula exacta en usuario
+        if (!empty($funcionario->cedula)) {
+            $u = Usuario::where('usuario', trim($funcionario->cedula))
+                ->whereNotNull('correo')
+                ->where('correo', '!=', '')
+                ->first();
+            if ($u) {
+                return $u->correo;
+            }
+        }
+
+        // 2. Por nombre completo exacto
+        if (!empty($funcionario->nombre)) {
+            $u = Usuario::whereRaw('LOWER(TRIM(nombre_completo)) = LOWER(TRIM(?))', [trim($funcionario->nombre)])
+                ->whereNotNull('correo')
+                ->where('correo', '!=', '')
+                ->first();
+            if ($u) {
+                return $u->correo;
+            }
+        }
+
+        // 3. Por coincidencia de palabras del nombre
+        $cleanWords = function ($str) {
+            $str = mb_strtolower(trim((string) $str), 'UTF-8');
+            $str = str_replace(['á', 'é', 'í', 'ó', 'ú', 'ñ'], ['a', 'e', 'i', 'o', 'u', 'n'], $str);
+            $words = preg_split('/\s+/', $str);
+            $words = array_filter($words, fn($w) => strlen($w) >= 3);
+            sort($words);
+            return array_values($words);
+        };
+
+        $targetWords = $cleanWords($funcionario->nombre ?? '');
+        if (empty($targetWords)) {
+            return null;
+        }
+
+        $usuarios = Usuario::whereNotNull('correo')->where('correo', '!=', '')->get();
+        $bestMatch = null;
+        $maxMatches = 0;
+
+        foreach ($usuarios as $u) {
+            $uWords = $cleanWords($u->nombre_completo);
+            $common = array_intersect($targetWords, $uWords);
+            $count = count($common);
+
+            if ($count === count($targetWords) && count($targetWords) > 1 && filter_var($u->correo, FILTER_VALIDATE_EMAIL)) {
+                return trim($u->correo);
+            }
+
+            if ($count >= 2 && $count > $maxMatches && filter_var($u->correo, FILTER_VALIDATE_EMAIL)) {
+                $maxMatches = $count;
+                $bestMatch = trim($u->correo);
+            }
+        }
+
+        return $bestMatch ? trim($bestMatch) : null;
     }
 }
 

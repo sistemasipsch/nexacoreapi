@@ -58,7 +58,31 @@ class ExportarActaEntregaPdfUseCase
         }
 
         $firmaRecibe = $acta->getRawOriginal('firma_recibe') ?? $acta->attributes['firma_recibe'] ?? null;
-        $funcionarioFallback = optional($acta->funcionario)->getRawOriginal('firma') ?? optional($acta->funcionario)->firma ?? null;
+        $funcionarioFallback = null;
+
+        // Prioridad absoluta: Buscar en la tabla 'usuarios' la firma digital del usuario que recibe
+        if ($acta->funcionario) {
+            $uRecibe = method_exists($acta->funcionario, 'findUsuario') ? $acta->funcionario->findUsuario() : null;
+            if ($uRecibe && $uRecibe->getRawOriginal('firma_digital')) {
+                $cand = $uRecibe->getRawOriginal('firma_digital');
+                $test = $this->resolveImagePath($cand);
+                if ($test && file_exists($test)) {
+                    $funcionarioFallback = $cand;
+                }
+            }
+        }
+
+        if (!$funcionarioFallback && $acta->funcionario) {
+            $cand = $acta->funcionario->getRawOriginal('firma') ?? $acta->funcionario->firma ?? null;
+            if ($cand && $this->resolveImagePath($cand)) {
+                $funcionarioFallback = $cand;
+            }
+        }
+
+        // Si tenemos la firma digital del usuario en usuarios, SIEMPRE usar esa como prioridad absoluta
+        if ($funcionarioFallback) {
+            $firmaRecibe = $funcionarioFallback;
+        }
 
         // 3. Preparar lista de items (Equipo + Periféricos)
         $items = [];
@@ -142,8 +166,6 @@ class ExportarActaEntregaPdfUseCase
             $sheet->getStyle("Z{$currentRow}:AC{$r2}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)->setWrapText(true);
             $sheet->getStyle("AJ{$currentRow}:AK{$r2}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)->setWrapText(true);
 
-            $sheet->getStyle("B{$currentRow}:AK{$r2}")->getFont()->setSize(8.5);
-
             $currentRow += 2; // Avanzar al siguiente slot de 2 filas
         }
 
@@ -164,11 +186,6 @@ class ExportarActaEntregaPdfUseCase
         }
         $sheet->setCellValue('B' . $obsRow, $obsTexto);
         $sheet->getStyle('B' . $obsRow)->getAlignment()->setWrapText(true)->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
-        $sheet->getStyle('B' . $obsRow)->getFont()->setSize(8);
-
-        // Estilo cabecera funcionario
-        $sheet->getStyle('T7:AK11')->getFont()->setSize(8.5);
-        $sheet->getStyle('B7:S10')->getFont()->setSize(8.5);
 
         // Configuración de página y márgenes para PDF limpio
         $sheet->getPageMargins()->setTop(0.3);

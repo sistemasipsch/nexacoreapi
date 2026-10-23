@@ -72,27 +72,23 @@ class PcEntrega extends Model
 
     public function getFirmaRecibeUrlAttribute(): ?string
     {
+        // 1. Prioridad absoluta: Firma digital del usuario del funcionario en la tabla usuarios
+        try {
+            $func = $this->funcionario ?? ($this->funcionario_id ? Personal::find($this->funcionario_id) : null);
+            if ($func && !empty($func->firma_url)) {
+                return $func->firma_url;
+            }
+        } catch (\Throwable $e) {
+            // Ignorar en caso de error
+        }
+
+        // 2. Firma registrada explícitamente en pc_entregas
         $raw = $this->getRawOriginal('firma_recibe') ?? $this->attributes['firma_recibe'] ?? null;
         if ($raw) {
             $formatted = $this->formatFirmaUrl($raw);
             if ($formatted) {
                 return $formatted;
             }
-        }
-
-        // Fallback a la firma registrada en el perfil del funcionario
-        try {
-            if ($this->relationLoaded('funcionario') && $this->funcionario) {
-                return $this->funcionario->firma_url ?? $this->funcionario->firma;
-            }
-            if ($this->funcionario_id) {
-                $func = Personal::find($this->funcionario_id);
-                if ($func) {
-                    return $func->firma_url ?? $func->firma;
-                }
-            }
-        } catch (\Throwable $e) {
-            // Ignorar en caso de error
         }
 
         return null;
@@ -103,27 +99,30 @@ class PcEntrega extends Model
         if (!$value) {
             return null;
         }
-        if (str_starts_with($value, 'data:image') || str_starts_with($value, 'http://') || str_starts_with($value, 'https://')) {
+        if (str_starts_with($value, 'data:image')) {
             return $value;
         }
-        $path = ltrim(str_replace(['public/', 'api/', 'storage/'], '', $value), '/');
 
-        // Validar que el archivo exista en disco para no retornar imágenes rotas
+        $raw = $value;
+        $path = $raw;
+        if (str_starts_with($raw, 'http://') || str_starts_with($raw, 'https://')) {
+            $parsed = parse_url($raw, PHP_URL_PATH);
+            $path = ltrim(preg_replace('#^/?storage/#', '', $parsed), '/');
+        } else {
+            $path = ltrim(str_replace(['public/', 'api/', 'storage/'], '', $raw), '/');
+        }
+
         $existe = false;
         try {
-            if (Storage::disk('public')->exists($path)) {
-                $existe = true;
-            } elseif (file_exists(public_path('storage/' . $path))) {
-                $existe = true;
-            } elseif (file_exists(storage_path('app/public/' . $path))) {
+            if (Storage::disk('public')->exists($path) || file_exists(storage_path('app/public/' . $path)) || file_exists(public_path('storage/' . $path))) {
                 $existe = true;
             }
         } catch (\Throwable $e) {
-            $existe = true; // Si hay error verificando, permitir
+            $existe = false;
         }
 
         if (!$existe) {
-            return null; // Retornar null para que el accessor active el fallback automático a la firma de admin
+            return null;
         }
 
         return url('storage/' . $path);

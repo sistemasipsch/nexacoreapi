@@ -11,12 +11,9 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use App\Modules\GestionCompras\Application\UseCases\Pedidos\CrearPedidoUseCase;
-use App\Modules\GestionCompras\Application\UseCases\Pedidos\NotificaPedidosTrait;
 
 class ProcesarPedidosProgramados extends Command
 {
-    use NotificaPedidosTrait;
-
     /**
      * The name and signature of the console command.
      *
@@ -99,14 +96,6 @@ class ProcesarPedidosProgramados extends Command
 
                 $repository->actualizarEstado($pedidoProgramado->id, 'ejecutado');
                 DB::commit();
-                
-                // Disparamos notificacion reusando el trait
-                try {
-                    $pedidoReal->load(['items', 'solicitante', 'tipoSolicitud', 'sede', 'elaboradoPor', 'creador']);
-                    $this->sendNewOrderNotification($pedidoReal);
-                } catch (\Exception $mailEx) {
-                    Log::warning("Error enviando email al procesar pedido programado ID: {$pedidoProgramado->id}");
-                }
 
                 $this->info("Pedido ID: {$pedidoProgramado->id} ejecutado exitosamente.");
             } catch (\Exception $e) {

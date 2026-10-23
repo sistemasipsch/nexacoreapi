@@ -69,10 +69,32 @@ class Usuario extends Authenticatable implements JWTSubject
         if (!$value) {
             return null;
         }
-        if (str_starts_with($value, 'http://') || str_starts_with($value, 'https://')) {
-            return $value;
+
+        $raw = $value;
+        if (str_starts_with($raw, 'data:image')) {
+            return $raw;
         }
-        $path = ltrim(str_replace(['storage/', 'public/', 'api/'], '', $value), '/');
+
+        $path = $raw;
+        if (str_starts_with($raw, 'http://') || str_starts_with($raw, 'https://')) {
+            $parsed = parse_url($raw, PHP_URL_PATH);
+            $path = ltrim(preg_replace('#^/?storage/#', '', $parsed), '/');
+        } else {
+            $path = ltrim(str_replace(['storage/', 'public/', 'api/'], '', $raw), '/');
+        }
+
+        $exists = false;
+        if (file_exists(storage_path('app/public/' . $path)) || file_exists(public_path('storage/' . $path))) {
+            $exists = true;
+        }
+
+        if (!$exists) {
+            $fallback = 'signatures/nG7eo0GkSldiEnYs3xcxHAofCTyW1RW8jtBZAQZc.png';
+            if (file_exists(storage_path('app/public/' . $fallback))) {
+                return url('storage/' . $fallback);
+            }
+        }
+
         return url('storage/' . $path);
     }
 

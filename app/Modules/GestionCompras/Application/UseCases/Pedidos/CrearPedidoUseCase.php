@@ -7,14 +7,12 @@ use App\Models\CpItemPedido;
 use App\Models\Usuario;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Log;
 use Exception;
 use App\Services\PermissionService;
 
 class CrearPedidoUseCase
 {
-    use HandleSignaturePedidoTrait, NotificaPedidosTrait;
+    use HandleSignaturePedidoTrait;
     
 
     public function execute(array $data, $firmaFile = null, $useStoredSignature = false, Usuario $user)
@@ -75,9 +73,6 @@ class CrearPedidoUseCase
             }
 
             DB::commit();
-
-            $pedido->load(['items', 'solicitante', 'tipoSolicitud', 'sede', 'elaboradoPor', 'creador']);
-            $this->sendNewOrderNotification($pedido);
 
             return $pedido->load('items');
         } catch (Exception $e) {

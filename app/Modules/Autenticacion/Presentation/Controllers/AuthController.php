@@ -6,9 +6,6 @@ use App\DTOs\Auth\LoginDTO;
 use App\Responses\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Log;
-use App\Mail\LoginNotification;
 use App\Http\Controllers\Controller;
 use OpenApi\Attributes as OA;
 
@@ -90,24 +87,6 @@ class AuthController extends Controller
 
         if (! $result) {
             return ApiResponse::error('Credenciales inválidas', 401);
-        }
-
-        try {
-            $user = \App\Models\Usuario::where('usuario', $request->usuario)
-                ->orWhere('correo', $request->usuario)
-                ->first();
-
-            if ($user && $user->correo) {
-                $details = [
-                    'ip' => $request->ip(),
-                    'userAgent' => $request->userAgent(),
-                    'time' => now()->format('d/m/Y H:i:s A'),
-                ];
-                // TEMPORALMENTE COMENTADO: Evita que el servidor se cuelgue intentando enviar el correo por SMTP
-                // Mail::to($user->correo)->send(new LoginNotification($user, $details));
-            }
-        } catch (\Exception $e) {
-            Log::error('Error sending login alert email: ' . $e->getMessage());
         }
 
         return ApiResponse::success($result, 'Login exitoso');
