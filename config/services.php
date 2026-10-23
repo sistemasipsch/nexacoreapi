@@ -39,7 +39,19 @@ return [
         'url' => env('KUBAPP_API_URL', 'http://190.145.135.122:8090'),
         'server_api' => env('SERVIDOR_KUBAPP_API', '190.145.135.122:3006'),
         'alert_emails' => env('KUBAPP_ALERT_EMAILS', 'junior.arias02yt@gmail.com,sistemas@clinicalhouse.co'),
-        'timeout' => env('KUBAPP_TIMEOUT', 10),
+        'timeout' => (int) env('KUBAPP_TIMEOUT', 10),
+        'monitor_intentos' => (int) env('KUBAPP_MONITOR_INTENTOS', 3),
+        'monitor_timeout' => (int) env('KUBAPP_MONITOR_TIMEOUT', 4),
+        'monitor_pausa' => (int) env('KUBAPP_MONITOR_PAUSA', 2),
+    ],
+
+    'sitrad' => [
+        'alert_emails' => env('SITRAD_ALERT_EMAIL'),
+        'host_vacunacion' => env('SITRAD_HOST_VACUNACION', '190.145.135.122:8001'),
+        'host_farmacia' => env('SITRAD_HOST_FARMACIA', '190.145.135.122:8002'),
+        'monitor_intentos' => (int) env('SITRAD_MONITOR_INTENTOS', 3),
+        'monitor_timeout' => (int) env('SITRAD_MONITOR_TIMEOUT', 4),
+        'monitor_pausa' => (int) env('SITRAD_MONITOR_PAUSA', 2),
     ],
 
     'convertidor' => [
@@ -52,6 +64,8 @@ return [
         'alert_emails' => env('MONITOR_ALERT_EMAILS', 'sistemasipsch2@gmail.com,sistemas@clinicalhouse.co,nicoleperez0958@gmail.com,junior.arias02yt@gmail.com'),
         'ip_publica' => env('MONITOR_HOST_IP_PUBLICA', '190.145.135.122'),
         'pc_vacunacion' => env('MONITOR_HOST_PC_VACUNACION', ''),
+        'intentos' => (int) env('MONITOR_INTENTOS', 3),
+        'timeout' => (int) env('MONITOR_TIMEOUT', 3),
     ],
 
 ];

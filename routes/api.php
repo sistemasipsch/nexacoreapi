@@ -161,3 +161,7 @@ require base_path('app/Modules/Autenticacion/Presentation/Routes/api.php');
 
 // Rutas del Dominio: Dashboard
 require base_path('app/Modules/Dashboard/Presentation/Routes/api.php');
+
+// Rutas del Dominio: Auditoría
+require base_path('app/Modules/Auditoria/Presentation/Routes/api.php');
+

@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
+use Carbon\Carbon;
 use App\Mail\KubappConnectionAlert;
 
 class CheckKubappConnection extends Command
@@ -22,7 +23,7 @@ class CheckKubappConnection extends Command
      *
      * @var string
      */
-    protected $description = 'Verifica la conexión con el servidor y la API de KubApp (socket TCP y respuesta HTTP) y envía alertas si falla.';
+    protected $description = 'Verifica la conexión con el servidor y la API de KubApp con ráfaga anti-flapping de reintentos parametrizable y filtro anti-spam.';
 
     /**
      * Execute the console command.
@@ -31,6 +32,11 @@ class CheckKubappConnection extends Command
     {
         $host = config('services.kubapp.server_api', env('SERVIDOR_KUBAPP_API', '190.145.135.122:3006'));
         $alertEmailsRaw = config('services.kubapp.alert_emails', env('KUBAPP_ALERT_EMAILS', env('MICROSERVICIO_ALERT_EMAIL')));
+
+        // Parámetros configurables desde .env
+        $maxAttempts = (int) config('services.kubapp.monitor_intentos', env('KUBAPP_MONITOR_INTENTOS', 3));
+        $timeoutSeconds = (int) config('services.kubapp.monitor_timeout', env('KUBAPP_MONITOR_TIMEOUT', 4));
+        $pauseSeconds = (int) config('services.kubapp.monitor_pausa', env('KUBAPP_MONITOR_PAUSA', 2));
 
         if (!$host) {
             $this->warn('El host del servidor KubApp API no está configurado (SERVIDOR_KUBAPP_API en .env).');
@@ -45,63 +51,111 @@ class CheckKubappConnection extends Command
         }
 
         $this->info("Verificando servidor y API de KubApp en: {$host}");
+        $this->line("Parámetros: {$maxAttempts} intentos, timeout {$timeoutSeconds}s, pausa {$pauseSeconds}s");
 
         $apiUrl = "http://{$host}/api";
-        $cacheKey = 'kubapp_api_is_down';
-        $isCurrentlyDown = (bool) Cache::get($cacheKey, false);
+        $cachePrefix = 'kubapp_api';
+        $isCurrentlyDown = (bool) Cache::get("{$cachePrefix}_is_down", false);
+        $downSince = Cache::get("{$cachePrefix}_down_since", null);
+        $stillDownNotified = (bool) Cache::get("{$cachePrefix}_still_down_notified", false);
 
-        // Paso 1: Validación a nivel Socket TCP (puerto abierto)
         $parts = explode(':', $host);
         $ip = $parts[0];
         $port = isset($parts[1]) ? (int) $parts[1] : 80;
 
-        $socketConnection = @fsockopen($ip, $port, $errno, $errstr, 5);
+        // Evaluación con ráfaga de intentos parametrizada (Anti-Flapping)
+        $health = $this->evaluateHealthWithRetry($ip, $port, $apiUrl, $maxAttempts, $timeoutSeconds, $pauseSeconds);
 
-        if (!is_resource($socketConnection)) {
-            $errorMsg = "Fallo de conexión socket TCP al puerto {$port}: " . ($errstr ?: 'Connection refused/timeout');
-            $this->error("✖ {$errorMsg}");
-            $this->handleFailure($host, $apiUrl, $errorMsg, $alertEmails, $isCurrentlyDown, $cacheKey);
-            return;
-        }
+        if ($health['alive']) {
+            $this->info("✔ KubApp API responde correctamente en el intento {$health['success_attempt']}/{$maxAttempts} (HTTP Status: {$health['status_code']}).");
 
-        fclose($socketConnection);
-        $this->info("✔ Conexión TCP socket establecida exitosamente con {$ip}:{$port}");
-
-        // Paso 2: Validación a nivel HTTP (API levantada y respondiendo)
-        try {
-            $response = Http::timeout(5)->get($apiUrl);
-
-            // Cualquier código de respuesta HTTP (incluso 403 o 401 por autenticación) indica que el proceso Express / Node.js está levantado y atendiendo peticiones
-            if ($response->status() > 0) {
-                $this->info("✔ API KubApp responde correctamente (HTTP Status: " . $response->status() . ").");
-
-                if ($isCurrentlyDown) {
-                    $this->info('El servidor y API de KubApp se han restablecido. Enviando correo de recuperación...');
-                    $this->sendAlertEmail('up', $host, $apiUrl, $alertEmails);
-                    Cache::put($cacheKey, false);
-                } else {
-                    $this->info('El servicio KubApp API está funcionando con normalidad.');
-                }
+            if ($isCurrentlyDown) {
+                $this->info('El servidor y API de KubApp se han restablecido. Enviando correo de recuperación...');
+                $this->sendAlertEmail('up', $host, $apiUrl, $alertEmails);
+                Cache::put("{$cachePrefix}_is_down", false);
+                Cache::forget("{$cachePrefix}_down_since");
+                Cache::forget("{$cachePrefix}_still_down_notified");
             } else {
-                throw new \Exception("La API respondió con status code: " . $response->status());
+                $this->info('El servicio KubApp API está funcionando con normalidad.');
             }
+        } else {
+            $this->error("✖ KubApp API falló los {$maxAttempts} intentos consecutivos. Detalle: {$health['error']}");
 
-        } catch (\Throwable $e) {
-            $errorMsg = "El puerto está abierto pero la API no responde vía HTTP: " . $e->getMessage();
-            $this->error("✖ {$errorMsg}");
-            $this->handleFailure($host, $apiUrl, $errorMsg, $alertEmails, $isCurrentlyDown, $cacheKey);
+            if (!$isCurrentlyDown) {
+                $this->warn("Nueva caída confirmada tras {$maxAttempts} intentos. Enviando alerta por correo...");
+                $this->sendAlertEmail('down', $host, $apiUrl, $alertEmails, $health['error']);
+                Cache::put("{$cachePrefix}_is_down", true);
+                Cache::put("{$cachePrefix}_down_since", now()->toIso8601String());
+                Cache::put("{$cachePrefix}_still_down_notified", false);
+            } else {
+                if (!$stillDownNotified) {
+                    $this->warn('A los 5 minutos sigue sin responder. Enviando correo de persistencia...');
+                    $duracion = 'Aproximadamente 5 minutos';
+                    if ($downSince) {
+                        try {
+                            $duracion = Carbon::parse($downSince)->diffForHumans(now(), [
+                                'parts' => 2,
+                                'syntax' => Carbon::DIFF_ABSOLUTE,
+                            ]);
+                        } catch (\Throwable) {}
+                    }
+                    $errorConDuracion = $health['error'] . " (Tiempo transcurrido: {$duracion})";
+                    $this->sendAlertEmail('down', $host, $apiUrl, $alertEmails, $errorConDuracion);
+                    Cache::put("{$cachePrefix}_still_down_notified", true);
+                } else {
+                    $this->line('El servicio continúa caído. Silencio activo activado para evitar saturación de correo.');
+                }
+            }
         }
     }
 
-    private function handleFailure(string $host, string $apiUrl, string $errorMsg, array $alertEmails, bool $isCurrentlyDown, string $cacheKey): void
+    /**
+     * Realiza intentos de socket TCP y petición HTTP parametrizados con pausas intermedias.
+     * Si al menos 1 intento tiene éxito, se considera ONLINE (evita falsos positivos por micro-cortes).
+     */
+    private function evaluateHealthWithRetry(string $ip, int $port, string $apiUrl, int $maxAttempts, int $timeoutSeconds, int $pauseSeconds): array
     {
-        if (!$isCurrentlyDown) {
-            $this->warn('Detectada nueva caída de KubApp API. Enviando correo de alerta...');
-            $this->sendAlertEmail('down', $host, $apiUrl, $alertEmails, $errorMsg);
-            Cache::put($cacheKey, true);
-        } else {
-            $this->info('KubApp API sigue caída. Silenciado para evitar saturación de correo.');
+        $lastError = '';
+
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            // 1. Comprobación a nivel Socket TCP
+            $socket = @fsockopen($ip, $port, $errno, $errstr, $timeoutSeconds);
+            if (!is_resource($socket)) {
+                $lastError = "Fallo socket TCP ({$ip}:{$port}): " . ($errstr ?: 'Connection timeout/refused');
+                if ($attempt < $maxAttempts && $pauseSeconds > 0) {
+                    sleep($pauseSeconds);
+                }
+                continue;
+            }
+            fclose($socket);
+
+            // 2. Comprobación a nivel HTTP (API respondiendo)
+            try {
+                $response = Http::timeout($timeoutSeconds)->get($apiUrl);
+                if ($response->status() > 0) {
+                    return [
+                        'alive' => true,
+                        'status_code' => $response->status(),
+                        'success_attempt' => $attempt,
+                        'error' => null,
+                    ];
+                }
+                $lastError = "Status HTTP inválido: " . $response->status();
+            } catch (\Throwable $e) {
+                $lastError = "API no respondió vía HTTP: " . $e->getMessage();
+            }
+
+            if ($attempt < $maxAttempts && $pauseSeconds > 0) {
+                sleep($pauseSeconds);
+            }
         }
+
+        return [
+            'alive' => false,
+            'status_code' => null,
+            'success_attempt' => null,
+            'error' => $lastError,
+        ];
     }
 
     private function sendAlertEmail(string $status, string $host, string $apiUrl, array $emails, string $errorMessage = ''): void

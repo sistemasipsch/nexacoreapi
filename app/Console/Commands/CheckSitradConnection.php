@@ -21,21 +21,26 @@ class CheckSitradConnection extends Command
      *
      * @var string
      */
-    protected $description = 'Verifica la conexión con los dispositivos Sitrad y envía alertas si fallan.';
+    protected $description = 'Verifica la conexión con los dispositivos Sitrad con ráfaga anti-flapping de reintentos parametrizable y envía alertas si fallan.';
 
     /**
      * Execute the console command.
      */
     public function handle()
     {
-        $alertEmailRaw = env('SITRAD_ALERT_EMAIL');
+        $alertEmailRaw = config('services.sitrad.alert_emails', env('SITRAD_ALERT_EMAIL'));
         
+        // Parámetros configurables desde .env
+        $maxAttempts = (int) config('services.sitrad.monitor_intentos', env('SITRAD_MONITOR_INTENTOS', 3));
+        $timeoutSeconds = (int) config('services.sitrad.monitor_timeout', env('SITRAD_MONITOR_TIMEOUT', 4));
+        $pauseSeconds = (int) config('services.sitrad.monitor_pausa', env('SITRAD_MONITOR_PAUSA', 2));
+
         if (!$alertEmailRaw) {
             $this->warn('Email de alerta para SITRAD no está configurado (SITRAD_ALERT_EMAIL en .env).');
             return;
         }
 
-        $alertEmails = array_filter(array_map('trim', explode(',', $alertEmailRaw)));
+        $alertEmails = array_filter(array_map('trim', explode(',', (string) $alertEmailRaw)));
 
         if (empty($alertEmails)) {
             $this->warn('No hay correos electrónicos válidos configurados para alertas SITRAD.');
@@ -43,52 +48,69 @@ class CheckSitradConnection extends Command
         }
 
         $areas = [
-            'Área de Vacunación' => env('SITRAD_HOST_VACUNACION', '190.145.135.122:8001'),
-            'Área de Farmacia' => env('SITRAD_HOST_FARMACIA', '190.145.135.122:8002'),
+            'Área de Vacunación' => config('services.sitrad.host_vacunacion', env('SITRAD_HOST_VACUNACION', '190.145.135.122:8001')),
+            'Área de Farmacia' => config('services.sitrad.host_farmacia', env('SITRAD_HOST_FARMACIA', '190.145.135.122:8002')),
         ];
 
         $failedAreas = [];
 
         foreach ($areas as $area => $host) {
             $this->info("Verificando conexión con Sitrad - {$area} ({$host})");
+            $this->line("Parámetros: {$maxAttempts} intentos, timeout {$timeoutSeconds}s, pausa {$pauseSeconds}s");
             list($ip, $port) = explode(':', $host);
-            
-            // Timeout de 5 segundos
-            $connection = @fsockopen($ip, $port, $errno, $errstr, 5);
 
-            if (is_resource($connection)) {
-                fclose($connection);
-                $this->info("{$area} está funcionando correctamente.");
+            $isConnected = false;
+            $lastError = 'Connection timeout o refused';
+
+            // Rafaga de rententos parametrizable espaciada para evitar falsos positivos
+            for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+                $connection = @fsockopen($ip, (int) $port, $errno, $errstr, $timeoutSeconds);
+
+                if (is_resource($connection)) {
+                    fclose($connection);
+                    $isConnected = true;
+                    $this->line("✔ Conexión exitosa en intento {$attempt}/{$maxAttempts}");
+                    break;
+                }
+
+                $lastError = $errstr ?: 'Connection timeout o refused';
+                if ($attempt < $maxAttempts && $pauseSeconds > 0) {
+                    sleep($pauseSeconds);
+                }
+            }
+
+            $cacheKey = "sitrad_" . md5($area) . "_is_down";
+            $isCurrentlyDown = (bool) Cache::get($cacheKey, false);
+
+            if ($isConnected) {
+                $this->info("✔ {$area} está funcionando correctamente.");
                 
                 // Si estaba marcado como caído, enviar email de recuperación
-                $cacheKey = "sitrad_" . md5($area) . "_is_down";
-                $isCurrentlyDown = Cache::get($cacheKey, false);
-                
                 if ($isCurrentlyDown) {
                     $this->info("{$area} se ha recuperado. Enviando correo de recuperación...");
                     $this->sendAlertEmail('up', $area, $host, $alertEmails);
                     Cache::put($cacheKey, false);
                 }
             } else {
-                $this->error("{$area} falló al conectar.");
+                $this->error("✖ {$area} falló los {$maxAttempts} intentos consecutivos de conexión.");
                 $failedAreas[$area] = [
                     'host' => $host,
-                    'error' => $errstr ?: 'Connection timeout o refused'
+                    'error' => $lastError
                 ];
             }
         }
 
-        // Enviar alertas para las áreas que están caídas
+        // Enviar alertas para las áreas que están caídas (con silencio anti-spam si persiste)
         foreach ($failedAreas as $area => $data) {
             $cacheKey = "sitrad_" . md5($area) . "_is_down";
-            $isCurrentlyDown = Cache::get($cacheKey, false);
+            $isCurrentlyDown = (bool) Cache::get($cacheKey, false);
             
             if (!$isCurrentlyDown) {
-                $this->info("Detectada nueva caída. Enviando correo de alerta de caída para {$area}...");
+                $this->warn("Detectada nueva caída confirmada para {$area}. Enviando correo de alerta...");
                 $this->sendAlertEmail('down', $area, $data['host'], $alertEmails);
                 Cache::put($cacheKey, true);
             } else {
-                $this->info("{$area} sigue caída. No se envía nuevo correo para evitar spam.");
+                $this->info("{$area} continúa caída. Silencio activo para evitar spam.");
             }
         }
     }

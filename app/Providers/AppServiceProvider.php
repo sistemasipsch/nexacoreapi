@@ -30,6 +30,16 @@ class AppServiceProvider extends ServiceProvider
             \App\Modules\Gateway\Domain\Contracts\GatewayRepositoryInterface::class,
             \App\Modules\Gateway\Infrastructure\Repositories\KubappGatewayRepository::class
         );
+
+        $this->app->bind(
+            \App\Modules\Auditoria\Domain\Contracts\ActividadRepositoryInterface::class,
+            \App\Modules\Auditoria\Infrastructure\Repositories\ActividadRepository::class
+        );
+
+        $this->app->bind(
+            \App\Modules\Auditoria\Domain\Contracts\PedidoProgramadoAuditoriaRepositoryInterface::class,
+            \App\Modules\Auditoria\Infrastructure\Repositories\PedidoProgramadoAuditoriaRepository::class
+        );
     }
 
     /**

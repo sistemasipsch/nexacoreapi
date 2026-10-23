@@ -69,9 +69,12 @@ class CheckInfraestructuraConnection extends Command
                 $this->line("👤 Responsable asignado: {$equipoInfo['equipo_info']['responsable_nombre']} ({$equipoInfo['correo_responsable']})");
             }
 
-            $this->info("Evaluando {$nombreDispositivo} [{$host}] con ráfaga de 3 pings...");
+            $intentos = (int) config('services.monitoreo.intentos', env('MONITOR_INTENTOS', 3));
+            $timeoutPing = (int) config('services.monitoreo.timeout', env('MONITOR_TIMEOUT', 3));
 
-            $pingResult = $this->pingHost($host, 3);
+            $this->info("Evaluando {$nombreDispositivo} [{$host}] con ráfaga de {$intentos} pings (timeout: {$timeoutPing}s)...");
+
+            $pingResult = $this->pingHost($host, $intentos, $timeoutPing);
             $cachePrefix = 'mon_infra_' . md5($host);
 
             $isCurrentlyDown = (bool) Cache::get("{$cachePrefix}_is_down", false);
@@ -274,16 +277,17 @@ class CheckInfraestructuraConnection extends Command
      * Realiza una ráfaga de pings al host especificado.
      * Retorna inmediatamente al primer éxito para optimizar tiempo.
      */
-    private function pingHost(string $host, int $attempts = 3): array
+    private function pingHost(string $host, int $attempts = 3, int $timeoutSeconds = 3): array
     {
         $isWindows = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
         $success = false;
         $latency = null;
+        $winTimeoutMs = $timeoutSeconds * 1000;
 
         for ($i = 1; $i <= $attempts; $i++) {
             $cmd = $isWindows
-                ? "ping -n 1 -w 2500 " . escapeshellarg($host)
-                : "ping -c 1 -W 3 " . escapeshellarg($host);
+                ? "ping -n 1 -w {$winTimeoutMs} " . escapeshellarg($host)
+                : "ping -c 1 -W {$timeoutSeconds} " . escapeshellarg($host);
 
             $output = [];
             $returnVar = 1;
