@@ -295,6 +295,27 @@ class CpPedidoController extends Controller
 
         $this->authorizePedidoAccess($pedido);
 
+        $user = auth('api')->user();
+        $canVerFirmas = $user && (
+            $this->permissionService->check($user, 'cp_pedido.ver_trazabilidad_firmas') ||
+            $this->permissionService->check($user, 'cp_pedido.ver_firmas')
+        );
+
+        if (!$canVerFirmas) {
+            $pedido->elaborado_por_firma = null;
+            $pedido->proceso_compra_firma = null;
+            $pedido->responsable_aprobacion_firma = null;
+            if ($pedido->elaboradoPor) {
+                $pedido->elaboradoPor->firma_digital = null;
+            }
+            if ($pedido->procesoCompra) {
+                $pedido->procesoCompra->firma_digital = null;
+            }
+            if ($pedido->responsableAprobacion) {
+                $pedido->responsableAprobacion->firma_digital = null;
+            }
+        }
+
         return response()->json($pedido);
     }
 
