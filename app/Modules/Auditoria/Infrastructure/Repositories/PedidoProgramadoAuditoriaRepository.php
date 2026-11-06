@@ -12,7 +12,7 @@ class PedidoProgramadoAuditoriaRepository implements PedidoProgramadoAuditoriaRe
 {
     public function listarPaginado(FiltroPedidosProgramadosDTO $filtro): LengthAwarePaginator
     {
-        $query = CpPedidoProgramado::with(['creador.rol', 'creador.sede']);
+        $query = CpPedidoProgramado::with(['creador.rol', 'creador.sede', 'pedido:id,consecutivo']);
 
         // Filtro por rango de fechas (evaluado sobre fecha_programada)
         if (!empty($filtro->fechaInicio)) {
@@ -55,12 +55,15 @@ class PedidoProgramadoAuditoriaRepository implements PedidoProgramadoAuditoriaRe
         // Orden cronológico descendente
         $query->orderBy('fecha_programada', 'desc')->orderBy('id', 'desc');
 
-        return $query->paginate($filtro->perPage, ['*'], 'page', $filtro->page);
+        $paginator = $query->paginate($filtro->perPage, ['*'], 'page', $filtro->page);
+        $paginator->getCollection()->each(fn ($m) => $m->datos_pedido = $this->enriquecerDatosPedido($m));
+
+        return $paginator;
     }
 
     public function obtenerPorId(int $id): ?PedidoProgramadoAuditoriaEntity
     {
-        $pedido = CpPedidoProgramado::with(['creador.rol', 'creador.sede'])->find($id);
+        $pedido = CpPedidoProgramado::with(['creador.rol', 'creador.sede', 'pedido:id,consecutivo'])->find($id);
 
         if (!$pedido) {
             return null;
@@ -85,7 +88,7 @@ class PedidoProgramadoAuditoriaRepository implements PedidoProgramadoAuditoriaRe
 
         return PedidoProgramadoAuditoriaEntity::fromArray([
             'id' => $model->id,
-            'datos_pedido' => $model->datos_pedido,
+            'datos_pedido' => $this->enriquecerDatosPedido($model),
             'fecha_programada' => $model->getRawOriginal('fecha_programada'),
             'firma_programador' => $model->firma_programador,
             'creado_por' => $model->creado_por,
@@ -94,5 +97,29 @@ class PedidoProgramadoAuditoriaRepository implements PedidoProgramadoAuditoriaRe
             'updated_at' => $model->updated_at ? $model->updated_at->format('Y-m-d H:i:s') : null,
             'creador' => $creador,
         ]);
+    }
+
+    /**
+     * Agrega al payload el consecutivo del pedido generado y los nombres de proceso y sede
+     * (el payload original solo guarda los ids).
+     */
+    private function enriquecerDatosPedido(CpPedidoProgramado $model): array
+    {
+        $datos = $model->datos_pedido;
+        if (is_string($datos)) {
+            $datos = json_decode($datos, true);
+        }
+        $datos = is_array($datos) ? $datos : [];
+
+        $datos['consecutivo_pedido'] = $model->pedido?->consecutivo;
+
+        if (empty($datos['proceso_nombre']) && !empty($datos['proceso_solicitante'])) {
+            $datos['proceso_nombre'] = \App\Models\DependenciaSede::find($datos['proceso_solicitante'])?->nombre;
+        }
+        if (empty($datos['sede_nombre']) && !empty($datos['sede_id'])) {
+            $datos['sede_nombre'] = \App\Models\Sede::find($datos['sede_id'])?->nombre;
+        }
+
+        return $datos;
     }
 }

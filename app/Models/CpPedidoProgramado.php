@@ -16,12 +16,18 @@ class CpPedidoProgramado extends Model
         'fecha_programada',
         'firma_programador',
         'creado_por',
-        'estado'
+        'estado',
+        'cp_pedido_id'
     ];
 
     protected $casts = [
         'datos_pedido' => 'array',
     ];
+
+    public function pedido()
+    {
+        return $this->belongsTo(CpPedido::class, 'cp_pedido_id');
+    }
 
     public function creador()
     {

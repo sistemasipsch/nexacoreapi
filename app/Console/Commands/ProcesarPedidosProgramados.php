@@ -94,7 +94,7 @@ class ProcesarPedidosProgramados extends Command
                     }
                 }
 
-                $repository->actualizarEstado($pedidoProgramado->id, 'ejecutado');
+                $repository->actualizar($pedidoProgramado->id, ['estado' => 'ejecutado', 'cp_pedido_id' => $pedidoReal->id]);
                 DB::commit();
 
                 $this->info("Pedido ID: {$pedidoProgramado->id} ejecutado exitosamente.");
