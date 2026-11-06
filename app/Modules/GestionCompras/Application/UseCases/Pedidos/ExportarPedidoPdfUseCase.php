@@ -16,7 +16,7 @@ class ExportarPedidoPdfUseCase extends CpPedidoExport
         protected ExcelToPdfConverterInterface $pdfConverter
     ) {}
 
-    public function execute(int $pedidoId): StreamedResponse
+    public function execute(int $pedidoId, bool $canVerFirmas = true): StreamedResponse
     {
         $pedido = CpPedido::with([
             'solicitante',
@@ -46,7 +46,9 @@ class ExportarPedidoPdfUseCase extends CpPedidoExport
 
         $this->llenarEncabezado($pedido);
         $this->llenarItems($items);
-        $this->insertarFirmas($pedido);
+        if ($canVerFirmas) {
+            $this->insertarFirmas($pedido);
+        }
         $this->responsableProceso($pedido);
         $this->configurarPagina();
 

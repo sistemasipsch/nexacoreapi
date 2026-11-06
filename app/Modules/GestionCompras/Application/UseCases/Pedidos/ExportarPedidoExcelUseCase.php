@@ -11,7 +11,7 @@ use Exception;
 
 class ExportarPedidoExcelUseCase extends CpPedidoExport
 {
-    public function execute(int $pedidoId): StreamedResponse
+    public function execute(int $pedidoId, bool $canVerFirmas = true): StreamedResponse
     {
         $pedido = CpPedido::with([
             'solicitante',
@@ -43,7 +43,9 @@ class ExportarPedidoExcelUseCase extends CpPedidoExport
         // Fill data
         $this->llenarEncabezado($pedido);
         $this->llenarItems($items);
-        $this->insertarFirmas($pedido);
+        if ($canVerFirmas) {
+            $this->insertarFirmas($pedido);
+        }
         $this->responsableProceso($pedido);
         $this->configurarPagina();
 

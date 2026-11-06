@@ -301,18 +301,28 @@ class CpPedidoController extends Controller
             $this->permissionService->check($user, 'cp_pedido.ver_firmas')
         );
 
+        $pedido->can_ver_trazabilidad_firmas = $canVerFirmas;
+
         if (!$canVerFirmas) {
             $pedido->elaborado_por_firma = null;
             $pedido->proceso_compra_firma = null;
             $pedido->responsable_aprobacion_firma = null;
+            $pedido->makeHidden([
+                'elaborado_por_firma',
+                'proceso_compra_firma',
+                'responsable_aprobacion_firma',
+            ]);
             if ($pedido->elaboradoPor) {
                 $pedido->elaboradoPor->firma_digital = null;
+                $pedido->elaboradoPor->makeHidden(['firma_digital']);
             }
             if ($pedido->procesoCompra) {
                 $pedido->procesoCompra->firma_digital = null;
+                $pedido->procesoCompra->makeHidden(['firma_digital']);
             }
             if ($pedido->responsableAprobacion) {
                 $pedido->responsableAprobacion->firma_digital = null;
+                $pedido->responsableAprobacion->makeHidden(['firma_digital']);
             }
         }
 
@@ -650,7 +660,12 @@ class CpPedidoController extends Controller
         $this->authorizePedidoAccess(CpPedido::findOrFail($id));
 
         try {
-            return $this->exportarExcelUseCase->execute((int) $id);
+            $user = auth('api')->user();
+            $canVerFirmas = $user && (
+                $this->permissionService->check($user, 'cp_pedido.ver_trazabilidad_firmas') ||
+                $this->permissionService->check($user, 'cp_pedido.ver_firmas')
+            );
+            return $this->exportarExcelUseCase->execute((int) $id, $canVerFirmas);
         } catch (\Exception $e) {
             return ApiResponse::error('Error al exportar pedido: ' . $e->getMessage(), 500);
         }
@@ -678,7 +693,12 @@ class CpPedidoController extends Controller
     {
         $this->authorizePedidoAccess(CpPedido::findOrFail($id));
         try {
-            return $this->exportarPdfUseCase->execute((int) $id);
+            $user = auth('api')->user();
+            $canVerFirmas = $user && (
+                $this->permissionService->check($user, 'cp_pedido.ver_trazabilidad_firmas') ||
+                $this->permissionService->check($user, 'cp_pedido.ver_firmas')
+            );
+            return $this->exportarPdfUseCase->execute((int) $id, $canVerFirmas);
         } catch (\Exception $e) {
             return ApiResponse::error('Error al exportar pedido a PDF: ' . $e->getMessage(), 500);
         }
