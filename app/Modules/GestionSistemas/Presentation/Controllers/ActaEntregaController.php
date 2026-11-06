@@ -137,6 +137,17 @@ class ActaEntregaController extends Controller
             'perifericos' => 'nullable|string', // Aceptamos string para JSON
         ]);
 
+        // Bloquear si el equipo ya está entregado (acta activa, sin devolución)
+        $equipoYaEntregado = \App\Models\PcEntrega::where('equipo_id', $request->input('equipo_id'))
+            ->whereNull('devuelto')
+            ->exists();
+        if ($equipoYaEntregado) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Este equipo ya se encuentra asignado a una persona. Debe registrarse su devolución antes de crear una nueva acta de entrega.'
+            ], 409);
+        }
+
         $perifericosData = [];
         if ($request->has('perifericos') && !empty($request->input('perifericos'))) {
             $decoded = json_decode($request->input('perifericos'), true);
