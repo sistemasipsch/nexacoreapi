@@ -121,7 +121,7 @@ class CpPedidoController extends Controller
         ),
         responses: [
             new OA\Response(response: 201, description: 'Pedido creado exitosamente'),
-            new OA\Response(response: 422, description: 'Error de validación'),
+            new OA\Response(response: 422, description: 'Error de validaciÃ³n'),
             new OA\Response(response: 500, description: 'Error del servidor')
         ]
     )]
@@ -155,7 +155,7 @@ class CpPedidoController extends Controller
 
         if ($esPrioritario) {
             if (!$this->permissionService->canCreatePriorityOrder($user)) {
-                abort(403, 'Solo los coordinadores están autorizados para realizar pedidos prioritarios. El resto de usuarios únicamente pueden realizar pedidos en los horarios establecidos como pedidos recurrentes.');
+                abort(403, 'Solo los coordinadores estÃ¡n autorizados para realizar pedidos prioritarios. El resto de usuarios Ãºnicamente pueden realizar pedidos en los horarios establecidos como pedidos recurrentes.');
             }
         }
 
@@ -227,7 +227,7 @@ class CpPedidoController extends Controller
         ),
         responses: [
             new OA\Response(response: 200, description: 'Pedido actualizado exitosamente'),
-            new OA\Response(response: 422, description: 'Error de validación')
+            new OA\Response(response: 422, description: 'Error de validaciÃ³n')
         ]
     )]
     public function update(Request $request, $id)
@@ -274,7 +274,7 @@ class CpPedidoController extends Controller
         path: '/api/gestion-compras/cp-pedidos/{id}',
         tags: ['Pedidos de Compra'],
         summary: 'Obtener pedido de compra',
-        description: 'Obtiene los detalles de un pedido específico.',
+        description: 'Obtiene los detalles de un pedido especÃ­fico.',
         security: [['bearerAuth' => []]],
         parameters: [
             new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))
@@ -292,6 +292,8 @@ class CpPedidoController extends Controller
         if (!$pedido) {
             return response()->json(['error' => 'Pedido no encontrado'], 404);
         }
+
+        $this->authorizePedidoAccess($pedido);
 
         return response()->json($pedido);
     }
@@ -332,7 +334,7 @@ class CpPedidoController extends Controller
         path: '/api/gestion-compras/cp-pedidos/{id}/aprobar-compras',
         tags: ['Pedidos de Compra'],
         summary: 'Aprobar pedido (Compras)',
-        description: 'Aprueba un pedido por parte del área de compras.',
+        description: 'Aprueba un pedido por parte del Ã¡rea de compras.',
         security: [['bearerAuth' => []]],
         parameters: [
             new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))
@@ -344,7 +346,7 @@ class CpPedidoController extends Controller
                 schema: new OA\Schema(
                     required: [],
                     properties: [
-                        new OA\Property(property: 'motivo_aprobacion_compras', type: 'string', description: 'Motivo de la aprobación por compras (opcional)'),
+                        new OA\Property(property: 'motivo_aprobacion_compras', type: 'string', description: 'Motivo de la aprobaciÃ³n por compras (opcional)'),
                         new OA\Property(property: 'proceso_compra_firma', type: 'string', format: 'binary', description: 'Archivo de firma (PNG < 1MB)'),
                         new OA\Property(property: 'use_stored_signature', type: 'boolean', description: 'Usar firma guardada del usuario')
                     ]
@@ -354,7 +356,7 @@ class CpPedidoController extends Controller
         responses: [
             new OA\Response(response: 200, description: 'Pedido aprobado'),
             new OA\Response(response: 404, description: 'Pedido no encontrado'),
-            new OA\Response(response: 400, description: 'Error de validación o falta de firma')
+            new OA\Response(response: 400, description: 'Error de validaciÃ³n o falta de firma')
         ]
     )]
     public function aprobarCompras(Request $request, $id)
@@ -362,6 +364,7 @@ class CpPedidoController extends Controller
         $this->permissionService->authorize('cp_pedido.aprobar_compras');
         $validated = $request->validate([
             'motivo_aprobacion_compras' => 'nullable|string',
+            'color_motivo_compras' => 'nullable|in:verde,naranja,rojo',
             'use_stored_signature' => 'nullable|boolean',
             'proceso_compra_firma' => 'nullable|file|image|max:1024',
             'items_comprados' => 'nullable|array',
@@ -392,7 +395,7 @@ class CpPedidoController extends Controller
         path: '/api/gestion-compras/cp-pedidos/{id}/rechazar-compras',
         tags: ['Pedidos de Compra'],
         summary: 'Rechazar pedido (Compras)',
-        description: 'Rechaza un pedido por parte del área de compras.',
+        description: 'Rechaza un pedido por parte del Ã¡rea de compras.',
         security: [['bearerAuth' => []]],
         parameters: [
             new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))
@@ -439,7 +442,7 @@ class CpPedidoController extends Controller
             required: false,
             content: new OA\JsonContent(
                 properties: [
-                    new OA\Property(property: 'motivo_aprobacion_gerencia', type: 'string', description: 'Observación de aprobación de gerencia (opcional)')
+                    new OA\Property(property: 'motivo_aprobacion_gerencia', type: 'string', description: 'ObservaciÃ³n de aprobaciÃ³n de gerencia (opcional)')
                 ]
             )
         ),
@@ -553,7 +556,8 @@ class CpPedidoController extends Controller
         $request->validate([
             'items' => 'required|array',
             'items.*.id' => 'required|exists:cp_items_pedidos,id',
-            'items.*.comprado' => 'required|boolean'
+            'items.*.comprado' => 'nullable|boolean',
+            'items.*.estado' => 'nullable|in:pendiente,procesado,entregado'
         ]);
 
         try {
@@ -622,6 +626,7 @@ class CpPedidoController extends Controller
     public function exportExcel($id)
     {
         $this->permissionService->authorize('cp_pedido.ver');
+        $this->authorizePedidoAccess(CpPedido::findOrFail($id));
 
         try {
             return $this->exportarExcelUseCase->execute((int) $id);
@@ -650,6 +655,7 @@ class CpPedidoController extends Controller
     )]
     public function exportPdf($id)
     {
+        $this->authorizePedidoAccess(CpPedido::findOrFail($id));
         try {
             return $this->exportarPdfUseCase->execute((int) $id);
         } catch (\Exception $e) {
@@ -736,14 +742,14 @@ class CpPedidoController extends Controller
     #[OA\Get(
         path: '/api/gestion-compras/cp-pedidos/{id}/estadisticas',
         tags: ['Pedidos de Compra'],
-        summary: 'Obtener estadísticas de un pedido',
-        description: 'Obtiene los cálculos de SLA y tiempos de cumplimiento de un pedido específico.',
+        summary: 'Obtener estadÃ­sticas de un pedido',
+        description: 'Obtiene los cÃ¡lculos de SLA y tiempos de cumplimiento de un pedido especÃ­fico.',
         security: [['bearerAuth' => []]],
         parameters: [
             new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))
         ],
         responses: [
-            new OA\Response(response: 200, description: 'Estadísticas del pedido calculadas exitosamente'),
+            new OA\Response(response: 200, description: 'EstadÃ­sticas del pedido calculadas exitosamente'),
             new OA\Response(response: 404, description: 'Pedido no encontrado'),
             new OA\Response(response: 500, description: 'Error del servidor')
         ]
@@ -752,11 +758,35 @@ class CpPedidoController extends Controller
     {
         try {
             $estadisticas = $this->obtenerEstadisticasUseCase->execute($id);
-            return ApiResponse::success($estadisticas, 'Estadísticas del pedido obtenidas exitosamente');
+            return ApiResponse::success($estadisticas, 'EstadÃ­sticas del pedido obtenidas exitosamente');
         } catch (\Exception $e) {
             $status = $e->getCode() === 404 ? 404 : 500;
-            return ApiResponse::error('Error al obtener estadísticas: ' . $e->getMessage(), $status);
+            return ApiResponse::error('Error al obtener estadÃ­sticas: ' . $e->getMessage(), $status);
         }
     }
+
+    /**
+     * Un usuario solo puede ver/exportar sus propios pedidos, salvo que tenga permisos de compras/responsable.
+     */
+    private function authorizePedidoAccess(CpPedido $pedido): void
+    {
+        $user = auth('api')->user();
+        if (!$user) {
+            abort(401, 'Unauthenticated.');
+        }
+
+        if ($this->permissionService->check($user, 'cp_pedido.listar_todos')
+            || $this->permissionService->check($user, 'cp_pedido.listar.compras')
+            || $this->permissionService->check($user, 'cp_pedido.listar.responsable')
+            || $this->permissionService->check($user, 'cp_pedido.aprobar_gerencia')
+            || $this->permissionService->check($user, 'cp_pedido.aprobar_compras')) {
+            return;
+        }
+
+        if ((int) $pedido->elaborado_por === (int) $user->id || (int) $pedido->creador_por === (int) $user->id) {
+            return;
+        }
+
+        abort(403, 'No tienes permisos para ver este pedido.');
+    }
 }
- 

@@ -24,9 +24,9 @@ class ListarPedidosUseCase
             'solicitante', 
             'tipoSolicitud', 
             'sede', 
-            'elaboradoPor:id,nombre_completo', 
-            'procesoCompra:id,nombre_completo', 
-            'responsableAprobacion:id,nombre_completo', 
+            'elaboradoPor:id,nombre_completo,firma_digital', 
+            'procesoCompra:id,nombre_completo,firma_digital', 
+            'responsableAprobacion:id,nombre_completo,firma_digital', 
             'creador:id,nombre_completo'
         ])
             ->orderBy('id', 'desc');
@@ -49,14 +49,26 @@ class ListarPedidosUseCase
             $query->where('sede_id', $filters['sede_id']);
         }
 
-        if ($this->permissionService->check($user, 'cp_pedido.listar.compras')) {
+        // Quien puede ver TODOS los pedidos: compras / administración de pedidos.
+        // 'cp_pedido.listar' solo habilita entrar al módulo; el usuario ve únicamente sus propios pedidos.
+        $canViewAll = $this->permissionService->check($user, 'cp_pedido.listar_todos')
+                   || $this->permissionService->check($user, 'cp_pedido.listar.compras');
+
+        if ($canViewAll) {
             return $query->get();
-        } elseif ($this->permissionService->check($user, 'cp_pedido.listar.responsable')) {
-            // El responsable normalmente solo ve los aprobados por compras, 
-            // pero mantenemos la condición original.
-            return $query->where('estado_compras', 'aprobado')->get();
-        } else {
-            return $query->where('creador_por', $user->id)->get();
         }
+
+        $esResponsable = $this->permissionService->check($user, 'cp_pedido.listar.responsable');
+
+        return $query->where(function ($q) use ($user, $esResponsable) {
+            // Pedidos propios (elaborados o creados por el usuario)
+            $q->where('elaborado_por', $user->id)
+              ->orWhere('creador_por', $user->id);
+
+            // El responsable además ve los aprobados por compras
+            if ($esResponsable) {
+                $q->orWhere('estado_compras', 'aprobado');
+            }
+        })->get();
     }
 }

@@ -23,12 +23,16 @@ class CrearActaDevolucionUseCase
             $dto->observaciones
         );
 
-        if ($dto->firmaEntregaFile) {
+        if ($dto->firmaGuardadaEntregaPath) {
+            $acta->setFirmaEntrega($dto->firmaGuardadaEntregaPath);
+        } elseif ($dto->firmaEntregaFile) {
             $path = $dto->firmaEntregaFile->store('firmas_devolucion', 'public');
             $acta->setFirmaEntrega($path);
         }
 
-        if ($dto->firmaRecibeFile) {
+        if ($dto->firmaGuardadaRecibePath) {
+            $acta->setFirmaRecibe($dto->firmaGuardadaRecibePath);
+        } elseif ($dto->firmaRecibeFile) {
             $path = $dto->firmaRecibeFile->store('firmas_devolucion', 'public');
             $acta->setFirmaRecibe($path);
         }

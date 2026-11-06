@@ -53,18 +53,68 @@ class CpPedidoExport
             ->setVertical(Alignment::VERTICAL_TOP);
 
         $textoObs = $pedido->observacion ?? '';
+
+        // Observaciones registradas por Compras / Gerencia
+        $extrasObs = [
+            'Obs. Compras' => $pedido->observaciones_pedidos,
+            'Aprobación Compras' => $pedido->motivo_aprobacion_compras,
+            'Rechazo Compras' => $pedido->motivo_rechazado_compras,
+            'Obs. Gerencia' => $pedido->observacion_gerencia ?: $pedido->motivo_aprobacion_gerencia,
+        ];
+        foreach ($extrasObs as $label => $valor) {
+            if (!empty(trim((string) $valor))) {
+                $textoObs .= ($textoObs !== '' ? "\n" : '') . $label . ': ' . trim($valor);
+            }
+        }
         $currentValue = $sheet->getCell($obsCell)->getValue();
         if (!empty($currentValue)) {
             $textoObs = $currentValue . ' ' . $textoObs;
         }
 
-        $sheet->setCellValue($obsCell, $textoObs);
+        // El motivo de aprobación de Compras se resalta con el color elegido por la jefe (verde / naranja / rojo)
+        $motivoCompras = trim((string) $pedido->motivo_aprobacion_compras);
+        $colorHex = match ($pedido->color_motivo_compras) {
+            'naranja' => 'FFF97316',
+            'rojo' => 'FFDC2626',
+            'verde' => 'FF16A34A',
+            default => null,
+        };
+        $textoMotivo = 'Aprobación Compras: ' . $motivoCompras;
+        $pos = ($colorHex && $motivoCompras !== '') ? strpos($textoObs, $textoMotivo) : false;
+
+        if ($pos !== false) {
+            $rich = new \PhpOffice\PhpSpreadsheet\RichText\RichText();
+            $antes = substr($textoObs, 0, $pos);
+            $despues = substr($textoObs, $pos + strlen($textoMotivo));
+            if ($antes !== '') {
+                $rich->createText($antes);
+            }
+            $run = $rich->createTextRun($textoMotivo);
+            $run->getFont()->setBold(true)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color($colorHex));
+            if ($despues !== '') {
+                $rich->createText($despues);
+            }
+            $sheet->getCell($obsCell)->setValue($rich);
+        } else {
+            $sheet->setCellValue($obsCell, $textoObs);
+        }
 
         // Dynamic row height for observations
-        $anchoAprox = 50;
-        $alturaLinea = 15;
-        $lineas = max(1, ceil(strlen($textoObs) / $anchoAprox));
-        $sheet->getRowDimension($obsRow)->setRowHeight($lineas * $alturaLinea);
+        // La columna de observaciones abarca B:K fusionadas (~90 chars de ancho aprox.)
+        // Usamos un ancho más realista para no inflar la fila innecesariamente.
+        $anchoAprox   = 90;   // caracteres por línea (columna B:K fusionada)
+        $alturaLinea  = 13;   // pt por línea de texto
+        $alturaMinima = 20;   // mínimo para que no quede aplastado
+        $alturaMaxima = 100;  // máximo para mantener el pedido en 1 página cuando sea posible
+        $lineas = 0;
+        foreach (explode("\n", str_replace("\r\n", "\n", str_replace("\r", "\n", $textoObs))) as $parte) {
+            $lineas += max(1, ceil(mb_strlen(trim($parte)) / $anchoAprox));
+        }
+        $lineas = max(1, $lineas);
+        $alturaCalculada = $lineas * $alturaLinea;
+        $sheet->getRowDimension($obsRow)->setRowHeight(
+            max($alturaMinima, min($alturaCalculada, $alturaMaxima))
+        );
     }
 
     // ─── Items ────────────────────────────────────────────────
@@ -125,12 +175,19 @@ class CpPedidoExport
         $comprasFirma = $pedido->getRawOriginal('proceso_compra_firma');
         $responsableFirma = $pedido->getRawOriginal('responsable_aprobacion_firma');
 
-        $this->insertarFirma($elaboradoFirma, 'B' . (31 + $offset));
-        $this->insertarFirma($comprasFirma, 'B' . (38 + $offset));
-        $this->insertarFirma($responsableFirma, 'G' . (38 + $offset));
+        // Configurar alturas armoniosas de las filas para no desfasar la página
+        $sheet = $this->sheet;
+        $sheet->getRowDimension(31 + $offset)->setRowHeight(15);
+        $sheet->getRowDimension(32 + $offset)->setRowHeight(40);
+        $sheet->getRowDimension(38 + $offset)->setRowHeight(15);
+        $sheet->getRowDimension(39 + $offset)->setRowHeight(40);
+
+        $this->insertarFirma($elaboradoFirma, 'B' . (32 + $offset), 30, 2);
+        $this->insertarFirma($comprasFirma, 'B' . (39 + $offset), 20, 2);
+        $this->insertarFirma($responsableFirma, 'G' . (39 + $offset), 20, 2);
     }
 
-    protected function insertarFirma(?string $rutaFirma, string $celda): void
+    protected function insertarFirma(?string $rutaFirma, string $celda, int $offsetX = 20, int $offsetY = 2): void
     {
         if (empty($rutaFirma)) return;
 
@@ -141,13 +198,29 @@ class CpPedidoExport
         $fullPath = Storage::disk('public')->path($rutaLimpia);
 
         // Si no existe, probamos si está en storage/app/public/signatures/ 
-        // por si la rutaLimpia solo era el nombre del archivo
         if (!file_exists($fullPath)) {
             $fullPathAlter = Storage::disk('public')->path('signatures/' . basename($rutaLimpia));
-            if (!file_exists($fullPathAlter)) {
-                return; // No se encontró de ninguna forma
+            if (file_exists($fullPathAlter)) {
+                $fullPath = $fullPathAlter;
+            } else {
+                // Descargar temporalmente desde el servidor de producción si no existe localmente
+                $remoteUrl = "https://nexacoreapi.clinicalhouse.co/public/storage/" . $rutaLimpia;
+                $cacheDir = storage_path('app/temp_signatures');
+                if (!is_dir($cacheDir)) @mkdir($cacheDir, 0777, true);
+                $cacheFile = $cacheDir . '/' . md5($rutaLimpia) . '_' . basename($rutaLimpia);
+                if (!file_exists($cacheFile)) {
+                    $ctx = stream_context_create(['http' => ['timeout' => 3]]);
+                    $data = @file_get_contents($remoteUrl, false, $ctx);
+                    if ($data) {
+                        file_put_contents($cacheFile, $data);
+                    }
+                }
+                if (file_exists($cacheFile)) {
+                    $fullPath = $cacheFile;
+                } else {
+                    return;
+                }
             }
-            $fullPath = $fullPathAlter;
         }
 
         try {
@@ -163,15 +236,11 @@ class CpPedidoExport
             $drawing->setPath($fullPath);
             
             $drawing->setCoordinates($celda);
-            $drawing->setHeight(75);
+            $drawing->setHeight(36);
             $drawing->setResizeProportional(true);
-            $drawing->setOffsetX(65);
-            $drawing->setOffsetY(17);
+            $drawing->setOffsetX($offsetX);
+            $drawing->setOffsetY($offsetY);
             $drawing->setWorksheet($this->sheet);
-
-            preg_match('/([A-Z]+)([0-9]+)/', $celda, $matches);
-            $row = (int)$matches[2];
-            $this->sheet->getRowDimension($row)->setRowHeight(67);
         } catch (Exception $e) {
             // Ignorar el error de la imagen si ocurre para no romper la exportación
         }
@@ -292,7 +361,7 @@ class CpPedidoExport
     {
         $sheet = $this->sheet;
         $lastRow = 42 + $this->extra;
-        $sheet->getPageSetup()->setPrintArea("A2:K{$lastRow}");
+        $sheet->getPageSetup()->setPrintArea("B2:K{$lastRow}");
         $sheet->getPageSetup()->setPaperSize(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::PAPERSIZE_LETTER);
         $sheet->getPageSetup()->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_PORTRAIT);
         $sheet->getPageSetup()->setFitToPage(true);
@@ -305,10 +374,18 @@ class CpPedidoExport
         $sheet->getPageSetup()->setHorizontalCentered(true);
         $sheet->getPageSetup()->setVerticalCentered(false);
 
-        $sheet->getPageMargins()->setTop(0.35);
-        $sheet->getPageMargins()->setBottom(0.35);
-        $sheet->getPageMargins()->setLeft(0.35);
-        $sheet->getPageMargins()->setRight(0.35);
+        // Reducir la fila del texto legal (fila 28 en plantilla, con offset si hay items extra)
+        // La plantilla tiene esa fila a 164pt; la bajamos a 90pt para que quepa en 1 página.
+        $filaLegal = 28 + $this->extra;
+        $alturaActualLegal = $sheet->getRowDimension($filaLegal)->getRowHeight();
+        if ($alturaActualLegal < 0 || $alturaActualLegal > 90) {
+            $sheet->getRowDimension($filaLegal)->setRowHeight(90);
+        }
+
+        $sheet->getPageMargins()->setTop(0.25);
+        $sheet->getPageMargins()->setBottom(0.25);
+        $sheet->getPageMargins()->setLeft(0.25);
+        $sheet->getPageMargins()->setRight(0.25);
     }
 }
 

@@ -28,12 +28,16 @@ class ActualizarActaDevolucionUseCase
         $observaciones = $dto->observaciones !== null ? $dto->observaciones : $existente->getObservaciones();
         
         $firmaEntrega = $existente->getFirmaEntrega();
-        if ($dto->firmaEntregaFile) {
+        if ($dto->firmaGuardadaEntregaPath) {
+            $firmaEntrega = $dto->firmaGuardadaEntregaPath;
+        } elseif ($dto->firmaEntregaFile) {
             $firmaEntrega = $dto->firmaEntregaFile->store('firmas_devolucion', 'public');
         }
 
         $firmaRecibe = $existente->getFirmaRecibe();
-        if ($dto->firmaRecibeFile) {
+        if ($dto->firmaGuardadaRecibePath) {
+            $firmaRecibe = $dto->firmaGuardadaRecibePath;
+        } elseif ($dto->firmaRecibeFile) {
             $firmaRecibe = $dto->firmaRecibeFile->store('firmas_devolucion', 'public');
         }
 

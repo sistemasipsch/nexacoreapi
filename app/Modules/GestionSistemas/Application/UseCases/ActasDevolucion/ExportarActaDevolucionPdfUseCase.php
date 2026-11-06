@@ -332,6 +332,22 @@ class ExportarActaDevolucionPdfUseCase
             return storage_path('app/public/' . $cleanPath);
         } elseif (file_exists(storage_path('app/' . $cleanPath))) {
             return storage_path('app/' . $cleanPath);
+        } else {
+            // Descargar temporalmente desde el servidor de producción si no existe localmente
+            $remoteUrl = "https://nexacoreapi.clinicalhouse.co/public/storage/" . $cleanPath;
+            $cacheDir = storage_path('app/temp_signatures');
+            if (!is_dir($cacheDir)) @mkdir($cacheDir, 0777, true);
+            $cacheFile = $cacheDir . '/' . md5($cleanPath) . '_' . basename($cleanPath);
+            if (!file_exists($cacheFile)) {
+                $ctx = stream_context_create(['http' => ['timeout' => 5]]);
+                $data = @file_get_contents($remoteUrl, false, $ctx);
+                if ($data) {
+                    file_put_contents($cacheFile, $data);
+                }
+            }
+            if (file_exists($cacheFile)) {
+                return $cacheFile;
+            }
         }
 
         return null;

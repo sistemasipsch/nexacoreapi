@@ -67,7 +67,22 @@ class Usuario extends Authenticatable implements JWTSubject
     public function getFirmaDigitalAttribute($value)
     {
         if (!$value) {
-            return null;
+            // Fallback a tabla personal si existe registro coincidente por nombre
+            try {
+                $nombre = trim($this->nombre_completo ?? '');
+                if ($nombre) {
+                    $personal = \App\Models\Personal::where('nombre', 'LIKE', "%$nombre%")->first();
+                    if ($personal && !empty($personal->firma)) {
+                        $value = $personal->firma;
+                    }
+                }
+            } catch (\Throwable $e) {
+                // Ignore fallback error
+            }
+
+            if (!$value) {
+                return null;
+            }
         }
 
         $raw = $value;

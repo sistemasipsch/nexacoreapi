@@ -11,6 +11,9 @@ use App\Modules\GestionSistemas\Application\UseCases\ActasDevolucion\ObtenerActa
 use App\Modules\GestionSistemas\Application\UseCases\ActasDevolucion\EliminarActaDevolucionUseCase;
 use App\Modules\GestionSistemas\Infrastructure\Repositories\ActaDevolucionRepository;
 use App\Models\PcDevuelto;
+use App\Models\PcEntrega;
+use App\Models\Usuario;
+use App\Models\Personal;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -89,12 +92,63 @@ class ActaDevolucionController extends Controller
             'observaciones' => 'nullable|string',
         ]);
 
+        $entrega = PcEntrega::with('funcionario')->find($request->input('entrega_id'));
+
+        $firmaGuardadaEntregaPath = null;
+        if ($request->input('usar_firma_guardada_entrega') === 'true' || (!$request->hasFile('firma_entrega') && empty($request->input('firma_entrega')))) {
+            $rawEntregaFirma = null;
+            if ($entrega && $entrega->funcionario && !empty($entrega->funcionario->firma)) {
+                $rawEntregaFirma = $entrega->funcionario->firma;
+            } elseif ($entrega && !empty($entrega->firma_recibe)) {
+                $rawEntregaFirma = $entrega->firma_recibe;
+            }
+
+            if ($rawEntregaFirma) {
+                if (preg_match('#/storage/(.+)#', $rawEntregaFirma, $matches)) {
+                    $rawEntregaFirma = $matches[1];
+                }
+                $firmaGuardadaEntregaPath = ltrim(str_replace(['public/', 'storage/', 'api/'], '', $rawEntregaFirma), '/');
+            }
+        }
+
+        $firmaGuardadaRecibePath = null;
+        if ($request->input('usar_firma_guardada_recibe') === 'true' || (!$request->hasFile('firma_recibe') && empty($request->input('firma_recibe')))) {
+            $user = $request->user();
+            $rawFirma = null;
+            if ($user) {
+                $rawFirma = $user->getAttributes()['firma_digital'] ?? null;
+                if (!$rawFirma && !empty($user->nombre_completo)) {
+                    $personal = \App\Models\Personal::where('nombre', 'LIKE', '%' . trim($user->nombre_completo) . '%')->first();
+                    if ($personal && !empty($personal->firma)) {
+                        $rawFirma = $personal->firma;
+                    }
+                }
+                if (!$rawFirma) {
+                    $rawFirma = $user->firma_digital;
+                }
+            }
+            if (!$rawFirma) {
+                $admin = Usuario::whereNotNull('firma_digital')->where('firma_digital', '!=', '')->first();
+                if ($admin) {
+                    $rawFirma = $admin->getAttributes()['firma_digital'] ?? $admin->firma_digital;
+                }
+            }
+            if ($rawFirma) {
+                if (preg_match('#/storage/(.+)#', $rawFirma, $matches)) {
+                    $rawFirma = $matches[1];
+                }
+                $firmaGuardadaRecibePath = ltrim(str_replace(['public/', 'storage/', 'api/'], '', $rawFirma), '/');
+            }
+        }
+
         $dto = new CrearActaDevolucionDTO(
             $request->input('entrega_id'),
             $request->input('fecha_devolucion'),
             $request->input('observaciones'),
             $request->file('firma_entrega'),
-            $request->file('firma_recibe')
+            $request->file('firma_recibe'),
+            $firmaGuardadaEntregaPath,
+            $firmaGuardadaRecibePath
         );
 
         try {
@@ -239,13 +293,69 @@ class ActaDevolucionController extends Controller
             'observaciones' => 'nullable|string',
         ]);
 
+        $entregaId = $request->input('entrega_id');
+        if (!$entregaId) {
+            $existing = PcDevuelto::find($id);
+            $entregaId = $existing?->entrega_id;
+        }
+        $entrega = PcEntrega::with('funcionario')->find($entregaId);
+
+        $firmaGuardadaEntregaPath = null;
+        if ($request->input('usar_firma_guardada_entrega') === 'true') {
+            $rawEntregaFirma = null;
+            if ($entrega && $entrega->funcionario && !empty($entrega->funcionario->firma)) {
+                $rawEntregaFirma = $entrega->funcionario->firma;
+            } elseif ($entrega && !empty($entrega->firma_recibe)) {
+                $rawEntregaFirma = $entrega->firma_recibe;
+            }
+
+            if ($rawEntregaFirma) {
+                if (preg_match('#/storage/(.+)#', $rawEntregaFirma, $matches)) {
+                    $rawEntregaFirma = $matches[1];
+                }
+                $firmaGuardadaEntregaPath = ltrim(str_replace(['public/', 'storage/', 'api/'], '', $rawEntregaFirma), '/');
+            }
+        }
+
+        $firmaGuardadaRecibePath = null;
+        if ($request->input('usar_firma_guardada_recibe') === 'true') {
+            $user = $request->user();
+            $rawFirma = null;
+            if ($user) {
+                $rawFirma = $user->getAttributes()['firma_digital'] ?? null;
+                if (!$rawFirma && !empty($user->nombre_completo)) {
+                    $personal = \App\Models\Personal::where('nombre', 'LIKE', '%' . trim($user->nombre_completo) . '%')->first();
+                    if ($personal && !empty($personal->firma)) {
+                        $rawFirma = $personal->firma;
+                    }
+                }
+                if (!$rawFirma) {
+                    $rawFirma = $user->firma_digital;
+                }
+            }
+            if (!$rawFirma) {
+                $admin = Usuario::whereNotNull('firma_digital')->where('firma_digital', '!=', '')->first();
+                if ($admin) {
+                    $rawFirma = $admin->getAttributes()['firma_digital'] ?? $admin->firma_digital;
+                }
+            }
+            if ($rawFirma) {
+                if (preg_match('#/storage/(.+)#', $rawFirma, $matches)) {
+                    $rawFirma = $matches[1];
+                }
+                $firmaGuardadaRecibePath = ltrim(str_replace(['public/', 'storage/', 'api/'], '', $rawFirma), '/');
+            }
+        }
+
         $dto = new ActualizarActaDevolucionDTO(
             $id,
             $request->input('entrega_id') ? (int) $request->input('entrega_id') : null,
             $request->input('fecha_devolucion'),
             $request->input('observaciones'),
             $request->file('firma_entrega'),
-            $request->file('firma_recibe')
+            $request->file('firma_recibe'),
+            $firmaGuardadaEntregaPath,
+            $firmaGuardadaRecibePath
         );
 
         try {

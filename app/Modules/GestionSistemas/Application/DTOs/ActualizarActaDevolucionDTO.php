@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Modules\GestionSistemas\Application\DTOs;
 
 use Illuminate\Http\UploadedFile;
@@ -11,6 +12,8 @@ class ActualizarActaDevolucionDTO
     public ?string $observaciones;
     public ?UploadedFile $firmaEntregaFile;
     public ?UploadedFile $firmaRecibeFile;
+    public ?string $firmaGuardadaEntregaPath;
+    public ?string $firmaGuardadaRecibePath;
 
     public function __construct(
         int $id,
@@ -18,7 +21,9 @@ class ActualizarActaDevolucionDTO
         ?string $fechaDevolucion = null,
         ?string $observaciones = null,
         ?UploadedFile $firmaEntregaFile = null,
-        ?UploadedFile $firmaRecibeFile = null
+        ?UploadedFile $firmaRecibeFile = null,
+        ?string $firmaGuardadaEntregaPath = null,
+        ?string $firmaGuardadaRecibePath = null
     ) {
         $this->id = $id;
         $this->entregaId = $entregaId;
@@ -26,5 +31,7 @@ class ActualizarActaDevolucionDTO
         $this->observaciones = $observaciones;
         $this->firmaEntregaFile = $firmaEntregaFile;
         $this->firmaRecibeFile = $firmaRecibeFile;
+        $this->firmaGuardadaEntregaPath = $firmaGuardadaEntregaPath;
+        $this->firmaGuardadaRecibePath = $firmaGuardadaRecibePath;
     }
 }

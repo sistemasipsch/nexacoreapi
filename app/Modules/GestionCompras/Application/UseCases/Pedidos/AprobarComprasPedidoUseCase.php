@@ -33,12 +33,16 @@ class AprobarComprasPedidoUseCase
             'proceso_compra' => $user->id,
             'proceso_compra_firma' => 'storage/' . $path,
             'motivo_aprobacion_compras' => $data['motivo_aprobacion_compras'] ?? null,
+
+            'color_motivo_compras' => $data['color_motivo_compras'] ?? 'verde',
             'fecha_compra' => now(),
         ]);
 
         if (isset($data['items_comprados']) && is_array($data['items_comprados'])) {
             CpItemPedido::whereIn('id', $data['items_comprados'])->update([
                 'comprado' => 1,
+
+                'estado' => 'entregado',
                 'fecha_entregado' => now(),
             ]);
         }

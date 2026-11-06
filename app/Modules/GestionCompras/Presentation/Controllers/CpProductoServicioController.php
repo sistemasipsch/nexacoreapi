@@ -70,9 +70,13 @@ class CpProductoServicioController extends Controller
         security: [['bearerAuth' => []]],
         responses: [new OA\Response(response: 200, description: 'Éxito')]
     )]
-    public function index()
+    public function index(Request $request)
     {
-        $items = $this->listarUseCase->execute();
+        $search = $request->query('search');
+        $perPage = (int) $request->query('per_page', 15);
+        $perPage = min(max($perPage, 1), 200);
+
+        $items = $this->listarUseCase->execute($search, $perPage);
         return ApiResponse::success($items, 'Lista de producto/servicio');
     }
 

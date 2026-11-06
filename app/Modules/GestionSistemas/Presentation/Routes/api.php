@@ -57,6 +57,18 @@ Route::middleware('auth:api')->prefix('gestion-sistemas')->group(function () {
     Route::put('/pc-mantenimientos/{id}', [\App\Modules\GestionSistemas\Presentation\Controllers\PcMantenimientoController::class, 'update']);
     Route::delete('/pc-mantenimientos/{id}', [\App\Modules\GestionSistemas\Presentation\Controllers\PcMantenimientoController::class, 'destroy']);
     Route::post('/pc-mantenimientos/{id}/actualizar-firmas', [\App\Modules\GestionSistemas\Presentation\Controllers\PcMantenimientoController::class, 'actualizarFirmas']);
+
+    // Equipos a Cargo
+    Route::get('/equipos-a-cargo', [\App\Modules\GestionSistemas\Presentation\Controllers\PcEquiposACargoController::class, 'index']);
+
+    // Préstamos de Sistemas
+    Route::get('/prestamos-buscar-equipo', [\App\Modules\GestionSistemas\Presentation\Controllers\PcPrestamoController::class, 'buscarEquipo']);
+    Route::get('/prestamos', [\App\Modules\GestionSistemas\Presentation\Controllers\PcPrestamoController::class, 'index']);
+    Route::post('/prestamos', [\App\Modules\GestionSistemas\Presentation\Controllers\PcPrestamoController::class, 'store']);
+    Route::get('/prestamos/{id}', [\App\Modules\GestionSistemas\Presentation\Controllers\PcPrestamoController::class, 'show']);
+    Route::match(['put', 'post'], '/prestamos/{id}', [\App\Modules\GestionSistemas\Presentation\Controllers\PcPrestamoController::class, 'update']);
+    Route::post('/prestamos/{id}/devolver', [\App\Modules\GestionSistemas\Presentation\Controllers\PcPrestamoController::class, 'marcarDevuelto']);
+    Route::delete('/prestamos/{id}', [\App\Modules\GestionSistemas\Presentation\Controllers\PcPrestamoController::class, 'destroy']);
 });
 
 Route::middleware('auth:api')->group(function () {

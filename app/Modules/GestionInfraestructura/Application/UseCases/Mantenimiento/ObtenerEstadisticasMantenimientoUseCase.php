@@ -9,24 +9,20 @@ class ObtenerEstadisticasMantenimientoUseCase
 {
     public function execute()
     {
-        $topCreators = Mantenimiento::join('usuarios', 'mantenimientos.creado_por', '=', 'usuarios.id')
-            ->where('usuarios.estado', 1)
-            ->select('mantenimientos.creado_por', DB::raw('count(mantenimientos.id) as total'))
+        $topCreators = Mantenimiento::select('mantenimientos.creado_por', DB::raw('count(mantenimientos.id) as total'))
+            ->whereNotNull('mantenimientos.creado_por')
             ->with('creador:id,nombre_completo')
             ->groupBy('mantenimientos.creado_por')
             ->orderBy('total', 'desc')
+            ->limit(10)
             ->get();
 
-        $bySede = Mantenimiento::join('usuarios', 'mantenimientos.creado_por', '=', 'usuarios.id')
-            ->where('usuarios.estado', 1)
-            ->select('mantenimientos.sede_id', DB::raw('count(mantenimientos.id) as total'))
+        $bySede = Mantenimiento::select('mantenimientos.sede_id', DB::raw('count(mantenimientos.id) as total'))
             ->with('sede:id,nombre')
             ->groupBy('mantenimientos.sede_id')
             ->get();
 
-        $reviewStatus = Mantenimiento::join('usuarios', 'mantenimientos.creado_por', '=', 'usuarios.id')
-            ->where('usuarios.estado', 1)
-            ->select('mantenimientos.esta_revisado', DB::raw('count(mantenimientos.id) as total'))
+        $reviewStatus = Mantenimiento::select('mantenimientos.esta_revisado', DB::raw('count(mantenimientos.id) as total'))
             ->groupBy('mantenimientos.esta_revisado')
             ->get()
             ->map(function ($item) {
@@ -37,36 +33,27 @@ class ObtenerEstadisticasMantenimientoUseCase
                 ];
             });
 
-        $technicianWorkload = AgendaMantenimiento::join('usuarios', 'agenda_mantenimientos.tecnico_id', '=', 'usuarios.id')
-            ->where('usuarios.estado', 1)
-            ->select('agenda_mantenimientos.tecnico_id', DB::raw('count(agenda_mantenimientos.id) as total'))
+        $technicianWorkload = AgendaMantenimiento::select('agenda_mantenimientos.tecnico_id', DB::raw('count(agenda_mantenimientos.id) as total'))
+            ->whereNotNull('agenda_mantenimientos.tecnico_id')
             ->with('tecnico:id,nombre_completo')
             ->groupBy('agenda_mantenimientos.tecnico_id')
             ->orderBy('total', 'desc')
             ->get();
 
-        $monthlyTrends = Mantenimiento::join('usuarios', 'mantenimientos.creado_por', '=', 'usuarios.id')
-            ->where('usuarios.estado', 1)
-            ->select(
+        $monthlyTrends = Mantenimiento::select(
                 DB::raw("DATE_FORMAT(mantenimientos.fecha_creacion, '%Y-%m') as mes"),
                 DB::raw('count(mantenimientos.id) as total')
             )
+            ->whereNotNull('fecha_creacion')
             ->groupBy('mes')
             ->orderBy('mes')
             ->get();
 
-        $totalMantenimientos = Mantenimiento::join('usuarios', 'mantenimientos.creado_por', '=', 'usuarios.id')
-            ->where('usuarios.estado', 1)
-            ->count();
+        $totalMantenimientos = Mantenimiento::count();
 
-        $totalPendientes = Mantenimiento::join('usuarios', 'mantenimientos.creado_por', '=', 'usuarios.id')
-            ->where('usuarios.estado', 1)
-            ->where('mantenimientos.esta_revisado', false)
-            ->count();
+        $totalPendientes = Mantenimiento::where('esta_revisado', false)->count();
 
-        $totalAgendados = AgendaMantenimiento::join('usuarios', 'agenda_mantenimientos.tecnico_id', '=', 'usuarios.id')
-            ->where('usuarios.estado', 1)
-            ->count();
+        $totalAgendados = AgendaMantenimiento::count();
 
         return [
             'summary' => [

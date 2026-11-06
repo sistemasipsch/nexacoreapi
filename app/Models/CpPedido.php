@@ -66,6 +66,7 @@ class CpPedido extends Model
         'responsable_aprobacion',
         'responsable_aprobacion_firma',
         'motivo_aprobacion_compras',
+        'color_motivo_compras',
         'creador_por',
         'pedido_visto',
         'observacion_diligenciado',

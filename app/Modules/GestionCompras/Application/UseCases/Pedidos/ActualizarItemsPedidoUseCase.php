@@ -25,33 +25,38 @@ class ActualizarItemsPedidoUseCase
         }
 
         foreach ($items as $itemData) {
-            $isComprado = !empty($itemData['comprado']) && ($itemData['comprado'] === true || $itemData['comprado'] == 1 || $itemData['comprado'] === 'true' || $itemData['comprado'] === '1');
+            // Estado solicitado: pendiente | procesado | entregado (compatibilidad: comprado=true => entregado)
+            $nuevoEstado = $itemData['estado'] ?? null;
+            if (!$nuevoEstado) {
+                $isComprado = !empty($itemData['comprado']) && ($itemData['comprado'] === true || $itemData['comprado'] == 1 || $itemData['comprado'] === 'true' || $itemData['comprado'] === '1');
+                $nuevoEstado = $isComprado ? 'entregado' : 'pendiente';
+            }
 
             $currentItem = CpItemPedido::where('id', $itemData['id'])
                 ->where('cp_pedido', $id)
                 ->first();
 
-            if ($currentItem) {
-                // Bloqueo: si ya estaba entregado, no permitir revertir
-                if ($currentItem->comprado && !$isComprado) {
-                    continue;
-                }
-
-                $updateData = ['comprado' => $isComprado ? 1 : 0];
-                if ($isComprado && !$currentItem->comprado) {
-                    // Guardar la fecha exacta del momento de la confirmación
-                    $updateData['fecha_entregado'] = now();
-                } elseif ($isComprado) {
-                    // Mantener la fecha que ya tenía
-                    $updateData['fecha_entregado'] = $currentItem->fecha_entregado ?? now();
-                } else {
-                    $updateData['fecha_entregado'] = null;
-                }
-
-                $currentItem->update($updateData);
+            if (!$currentItem) {
+                continue;
             }
-        }
 
+            $estadoActual = $currentItem->comprado ? 'entregado' : ($currentItem->estado ?: 'pendiente');
+
+            // Flujo permitido: pendiente -> procesado | entregado. Procesado y entregado son estados finales.
+            if ($estadoActual !== 'pendiente' || !in_array($nuevoEstado, ['procesado', 'entregado'], true)) {
+                continue;
+            }
+
+            $updateData = [
+                'estado' => $nuevoEstado,
+                'comprado' => $nuevoEstado === 'entregado' ? 1 : 0,
+            ];
+            if ($nuevoEstado === 'entregado') {
+                $updateData['fecha_entregado'] = now();
+            }
+
+            $currentItem->update($updateData);
+        }
         return $pedido->load(['items.producto', 'solicitante', 'tipoSolicitud', 'sede', 'elaboradoPor', 'procesoCompra', 'responsableAprobacion', 'creador']);
     }
 }

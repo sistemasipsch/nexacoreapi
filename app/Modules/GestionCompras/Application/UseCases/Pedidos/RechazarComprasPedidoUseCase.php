@@ -19,6 +19,13 @@ class RechazarComprasPedidoUseCase
             'motivo_rechazado_compras' => $motivo,
             'fecha_compra' => now(),
         ]);
+        // Al rechazarse el pedido, todos sus items quedan rechazados
+        \App\Models\CpItemPedido::where('cp_pedido', $pedido->id)->update([
+            'estado' => 'rechazado',
+            'comprado' => 0,
+            'fecha_entregado' => null,
+        ]);
+
 
         return $pedido;
     }

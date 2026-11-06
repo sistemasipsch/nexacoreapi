@@ -24,9 +24,9 @@ class ObtenerPedidoUseCase
             'solicitante', 
             'tipoSolicitud', 
             'sede', 
-            'elaboradoPor:id,nombre_completo', 
-            'procesoCompra:id,nombre_completo', 
-            'responsableAprobacion:id,nombre_completo', 
+            'elaboradoPor:id,nombre_completo,firma_digital', 
+            'procesoCompra:id,nombre_completo,firma_digital', 
+            'responsableAprobacion:id,nombre_completo,firma_digital', 
             'creador:id,nombre_completo'
         ])->find($id);
     }

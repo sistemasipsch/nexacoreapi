@@ -24,6 +24,7 @@ class CpItemPedido extends Model
         'cp_pedido',
         'productos_id',
         'comprado',
+        'estado',
         'fecha_entregado',
     ];
 
