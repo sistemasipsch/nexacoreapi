@@ -93,6 +93,9 @@ class PcEquipoRepository implements PcEquipoRepositoryInterface
             'mantenimientos' => function ($q) {
                 $q->with(['empresaResponsable', 'creador:id,nombre_completo'])->orderBy('fecha', 'desc');
             },
+            'prestamos' => function ($q) {
+                $q->with(['sede:id,nombre'])->orderBy('fecha_prestamo', 'desc');
+            },
         ])->find($id);
 
         if (!$equipo) {

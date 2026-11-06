@@ -104,4 +104,9 @@ class PcEquipo extends Model
     {
         return $this->hasMany(PcMantenimiento::class, 'equipo_id');
     }
+
+    public function prestamos()
+    {
+        return $this->hasMany(PcPrestamo::class, 'equipo_id');
+    }
 }
