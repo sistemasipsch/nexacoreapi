@@ -4,6 +4,7 @@ namespace App\Modules\GestionInfraestructura\Application\UseCases\Equipos;
 
 use App\Models\InfraEquipo;
 use App\Models\Mantenimiento;
+use App\Models\Sede;
 use App\Models\Usuario;
 use Carbon\Carbon;
 use Exception;
@@ -54,6 +55,9 @@ class InfraEquipoPlantilla
     private const MANT_MERGES = ['B:C', 'F:G', 'H:I', 'J:N', 'O:S', 'V:W', 'X:AB', 'AC:AE', 'AF:AH'];
 
     private array $temporales = [];
+
+    /** Responsables de sede ya consultados (sede_id => Usuario|null) */
+    private array $responsablesSede = [];
     private ?object $empresa = null;
     private bool $empresaCargada = false;
 
@@ -111,7 +115,7 @@ class InfraEquipoPlantilla
         $ultimaFila = $this->prepararFilasMantenimiento($sheet, $mantenimientos->count());
 
         foreach ($mantenimientos as $i => $mant) {
-            $this->llenarFilaMantenimiento($sheet, self::MANT_PRIMERA_FILA + $i, $mant, $paraPdf);
+            $this->llenarFilaMantenimiento($sheet, self::MANT_PRIMERA_FILA + $i, $mant, $paraPdf, $equipo);
         }
 
         // Fila de separación entre el encabezado (logo, título, código) y el formato, como en la HV.
@@ -287,7 +291,7 @@ class InfraEquipoPlantilla
         return $ultimaPlantilla + $extra;
     }
 
-    private function llenarFilaMantenimiento(Worksheet $sheet, int $fila, Mantenimiento $mant, bool $paraPdf): void
+    private function llenarFilaMantenimiento(Worksheet $sheet, int $fila, Mantenimiento $mant, bool $paraPdf, InfraEquipo $equipo): void
     {
         $fecha = $this->fechaMantenimiento($mant);
         if ($fecha) {
@@ -343,9 +347,21 @@ class InfraEquipoPlantilla
             $sheet->getStyle($rango)->getAlignment()->setShrinkToFit(false)->setWrapText(true);
         }
 
-        // Firmas: personal a cargo (coordinador) y personal de infraestructura (técnico que lo registró)
-        $this->firmaOCelda($sheet, $mant->coordinador, "AC{$fila}:AE{$fila}");
+        // Firmas: personal a cargo (responsable de la sede donde se hizo el mantenimiento; si la sede
+        // no tiene responsable, el coordinador del mantenimiento) y personal de infraestructura (técnico)
+        $this->firmaOCelda($sheet, $this->responsableSede($mant->sede_id ?: $equipo->sede_id) ?? $mant->coordinador, "AC{$fila}:AE{$fila}");
         $this->firmaOCelda($sheet, $mant->creador, "AF{$fila}:AH{$fila}");
+    }
+
+    private function responsableSede(?int $sedeId): ?Usuario
+    {
+        if (!$sedeId) {
+            return null;
+        }
+        if (!array_key_exists($sedeId, $this->responsablesSede)) {
+            $this->responsablesSede[$sedeId] = Sede::with("responsable")->find($sedeId)?->responsable;
+        }
+        return $this->responsablesSede[$sedeId];
     }
 
     private function firmaOCelda(Worksheet $sheet, ?Usuario $usuario, string $caja): void
