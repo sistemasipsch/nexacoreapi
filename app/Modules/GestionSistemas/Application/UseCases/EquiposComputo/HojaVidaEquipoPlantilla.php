@@ -16,6 +16,7 @@ use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
+use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 /**
@@ -89,6 +90,9 @@ class HojaVidaEquipoPlantilla
             // Menos margen arriba y abajo, y filas más altas para que el formato llene la hoja.
             // Va antes de las imágenes para que se centren en las casillas ya ampliadas.
             $sheet->getPageMargins()->setTop(0.3)->setBottom(0.3)->setHeader(0)->setFooter(0);
+            // Textos largos (p. ej. una descripción sin espacios) se parten y su fila crece,
+            // en vez de ensanchar la columna y achicar todo el formato
+            $this->ajustarTextosLargosPdf($sheet, self::PRIMERA_FILA_FORMATO, $sheet->getHighestRow());
             $this->ampliarFilasParaPagina($sheet, self::PRIMERA_FILA_FORMATO, $sheet->getHighestRow());
         }
 
@@ -103,6 +107,7 @@ class HojaVidaEquipoPlantilla
 
         if ($paraPdf) {
             $this->filaGuiaAnchosPdf($sheet);
+            $this->configurarImpresionPdf($sheet);
         }
 
         // 3. Garantizar que se mantenga la cuadrícula y selección limpia
@@ -339,6 +344,93 @@ class HojaVidaEquipoPlantilla
     }
 
     /**
+     * El convertidor no puede partir una palabra sin espacios: ensancha la columna y reduce todo
+     * el formato para que quepa. Aquí se insertan espacios en las palabras demasiado largas para
+     * su casilla y se aumenta el alto de la fila según las líneas que ocupará el texto.
+     */
+    private function ajustarTextosLargosPdf(Worksheet $sheet, int $desde, int $hasta): void
+    {
+        $fuente = $sheet->getParent()->getDefaultStyle()->getFont();
+        $anchoColPt = function (int $c) use ($sheet, $fuente): float {
+            $ancho = $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($c))->getWidth();
+            return DrawingUnits::cellDimensionToPixels($ancho < 0 ? 8.43 : $ancho, $fuente) * 0.75;
+        };
+
+        $merges = [];
+        foreach ($sheet->getMergeCells() as $rango) {
+            [$ini, $fin] = Coordinate::rangeBoundaries($rango);
+            $merges[Coordinate::stringFromColumnIndex($ini[0]) . $ini[1]] = [$ini, $fin];
+        }
+
+        $ultimaCol = Coordinate::columnIndexFromString($sheet->getHighestColumn());
+        for ($f = $desde; $f <= $hasta; $f++) {
+            $altoNecesario = 0;
+            for ($c = 1; $c <= $ultimaCol; $c++) {
+                $coord = Coordinate::stringFromColumnIndex($c) . $f;
+                $valor = $sheet->getCell($coord)->getValue();
+                // Solo datos: las etiquetas de la plantilla (en negrita) no se tocan
+                if (!is_string($valor) || trim($valor) === '' || $sheet->getStyle($coord)->getFont()->getBold()) {
+                    continue;
+                }
+
+                [$ini, $fin] = $merges[$coord] ?? [[$c, $f], [$c, $f]];
+                $anchoPt = 0;
+                for ($k = $ini[0]; $k <= $fin[0]; $k++) {
+                    $anchoPt += $anchoColPt($k);
+                }
+                $tamano = (float) ($sheet->getStyle($coord)->getFont()->getSize() ?: 11);
+                $negrita = $sheet->getStyle($coord)->getFont()->getBold();
+                $porLineaCon = fn (float $t) => max(4, (int) floor(($anchoPt - 6) / ($t * ($negrita ? 0.68 : 0.62))));
+                $porLinea = $porLineaCon($tamano);
+
+                // Texto muy largo: letra más pequeña (mínimo 6.5 pt) para que no alargue demasiado la hoja
+                $maxAltoTexto = 60;
+                while ($tamano > 6.5 && (mb_strlen($valor) / $porLinea) * $tamano * 1.25 > $maxAltoTexto) {
+                    $tamano -= 0.5;
+                    $porLinea = $porLineaCon($tamano);
+                }
+                if ($tamano < (float) ($sheet->getStyle($coord)->getFont()->getSize() ?: 11)) {
+                    $sheet->getStyle($coord)->getFont()->setSize($tamano);
+                }
+
+                // Si aun así no cabe en una hoja, en el PDF se muestra hasta donde cabe (el texto
+                // completo sigue en el sistema y en el Excel)
+                $maxCaracteres = (int) floor($maxAltoTexto / ($tamano * 1.25)) * $porLinea;
+                if ($ini[1] === $fin[1] && mb_strlen($valor) > $maxCaracteres) {
+                    $valor = rtrim(mb_substr($valor, 0, max(1, $maxCaracteres - 1))) . '…';
+                    $sheet->getCell($coord)->setValueExplicit($valor, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+                }
+
+                // Partir solo las palabras que no caben en la casilla, en trozos con holgura
+                // (las letras anchas ocupan más de lo estimado)
+                $corte = max(20, (int) floor($porLinea * 0.7));
+                $nuevo = preg_replace_callback('/\S{' . (max($corte, $porLinea) + 1) . ',}/u', function ($m) use ($corte) {
+                    return implode(' ', mb_str_split($m[0], $corte));
+                }, $valor);
+                if ($nuevo !== $valor) {
+                    $sheet->getCell($coord)->setValueExplicit($nuevo, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+                    $sheet->getStyle($coord)->getAlignment()->setWrapText(true);
+                }
+
+                // Solo las casillas de una fila definen el alto de esa fila
+                if ($ini[1] !== $fin[1]) {
+                    continue;
+                }
+                $lineas = 0;
+                foreach (preg_split('/\n/u', $nuevo) as $parrafo) {
+                    $lineas += max(1, (int) ceil(mb_strlen($parrafo) / $porLinea));
+                }
+                if ($lineas > 1) {
+                    $altoNecesario = max($altoNecesario, $lineas * $tamano * 1.25 + 4);
+                }
+            }
+            if ($altoNecesario > $this->altoFila($sheet, $f)) {
+                $sheet->getRowDimension($f)->setRowHeight(round($altoNecesario, 2));
+            }
+        }
+    }
+
+    /**
      * Amplía en la misma proporción los altos de las filas indicadas para que el formato,
      * ya ajustado al ancho de la hoja carta vertical, ocupe también el alto disponible.
      */
@@ -378,6 +470,25 @@ class HojaVidaEquipoPlantilla
         for ($f = $desde; $f <= $hasta; $f++) {
             $sheet->getRowDimension($f)->setRowHeight(round($this->altoFila($sheet, $f) * $factor, 2));
         }
+    }
+
+    /**
+     * Configuración de impresión explícita: así el PDF sale igual con el microservicio
+     * (LibreOffice, usado en producción y en el correo del acta) y con el convertidor local:
+     * una sola hoja carta vertical, ajustada al ancho y centrada.
+     */
+    private function configurarImpresionPdf(Worksheet $sheet): void
+    {
+        $setup = $sheet->getPageSetup();
+        $setup->setPrintArea('A1:' . $sheet->getHighestColumn() . $sheet->getHighestRow());
+        $setup->setOrientation(PageSetup::ORIENTATION_PORTRAIT);
+        $setup->setPaperSize(PageSetup::PAPERSIZE_LETTER);
+        $setup->setFitToPage(true);
+        $setup->setFitToWidth(1);
+        $setup->setFitToHeight(1);
+        $setup->setHorizontalCentered(true);
+        $sheet->setShowGridlines(false);
+        $sheet->setPrintGridlines(false);
     }
 
     private function filaGuiaAnchosPdf(Worksheet $sheet): void

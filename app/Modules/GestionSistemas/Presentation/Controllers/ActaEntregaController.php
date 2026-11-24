@@ -638,11 +638,9 @@ class ActaEntregaController extends Controller
                 @mkdir($exportDir, 0777, true);
             }
 
-            $useCaseActa = new ExportarActaEntregaPdfUseCase($pdfConverter);
-            $fileNameActa = $useCaseActa->execute($id);
-            $rutaPdfActa = $exportDir . '/' . $fileNameActa;
-
-            // 3. Generar PDF de Hoja de Vida del equipo si existe
+            // 2. PDF de Hoja de Vida del equipo: se genera PRIMERO y con el mismo caso de uso que la
+            //    descarga del módulo, para que el adjunto salga igual al PDF descargado (si el acta
+            //    se convierte antes y el microservicio falla, la HV se generaría con otro convertidor).
             $rutaPdfHojaVida = null;
             $fileNameHV = null;
             if (!empty($acta->equipo_id)) {
@@ -654,6 +652,11 @@ class ActaEntregaController extends Controller
                     \Log::warning("No se pudo generar Hoja de Vida para equipo ID {$acta->equipo_id} al enviar correo: " . $hvEx->getMessage());
                 }
             }
+
+            // 3. PDF del Acta de Entrega
+            $useCaseActa = new ExportarActaEntregaPdfUseCase($pdfConverter);
+            $fileNameActa = $useCaseActa->execute($id);
+            $rutaPdfActa = $exportDir . '/' . $fileNameActa;
 
             // 4. Enviar correo con ambos adjuntos
             Mail::to($correoDestino)->send(new ActaEntregaMail(
