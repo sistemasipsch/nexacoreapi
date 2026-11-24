@@ -247,7 +247,11 @@ class InfraEquipoController extends Controller
     )]
     public function destroy(int $id)
     {
-        $this->eliminarUseCase->execute($id);
+        try {
+            $this->eliminarUseCase->execute($id);
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            return ApiResponse::error($e->getMessage(), $e->getStatusCode());
+        }
         return ApiResponse::success(null, 'Equipo de infraestructura eliminado exitosamente');
     }
 
@@ -281,6 +285,113 @@ class InfraEquipoController extends Controller
     {
         $equipo = $this->trasladoUseCase->execute($id, $request->validated());
         return ApiResponse::success($equipo, 'Traslado del equipo registrado exitosamente');
+    }
+
+    #[OA\Get(
+        path: '/api/infraestructura/equipos/{id}/hoja-vida/exportar-pdf',
+        summary: 'Exportar hoja de vida del equipo (PIT-FO-37) a PDF',
+        tags: ['Equipos Infraestructura'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', description: 'ID del equipo de infraestructura', required: true, schema: new OA\Schema(type: 'integer'))
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Archivo PDF generado'),
+            new OA\Response(response: 404, description: 'Equipo no encontrado')
+        ]
+    )]
+    public function exportarHojaVidaPdf(int $id, \App\Modules\Shared\Domain\Contracts\ExcelToPdfConverterInterface $pdfConverter)
+    {
+        return $this->responderPdf($id, $pdfConverter, \App\Modules\GestionInfraestructura\Application\UseCases\Equipos\ExportarInfraEquipoPdfUseCase::HOJA_VIDA);
+    }
+
+    #[OA\Get(
+        path: '/api/infraestructura/equipos/{id}/mantenimientos/exportar-pdf',
+        summary: 'Exportar reporte de mantenimientos del equipo (PTSI-FO-04) a PDF',
+        tags: ['Equipos Infraestructura'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', description: 'ID del equipo de infraestructura', required: true, schema: new OA\Schema(type: 'integer'))
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Archivo PDF generado'),
+            new OA\Response(response: 404, description: 'Equipo no encontrado')
+        ]
+    )]
+    public function exportarMantenimientosPdf(int $id, \App\Modules\Shared\Domain\Contracts\ExcelToPdfConverterInterface $pdfConverter)
+    {
+        return $this->responderPdf($id, $pdfConverter, \App\Modules\GestionInfraestructura\Application\UseCases\Equipos\ExportarInfraEquipoPdfUseCase::MANTENIMIENTOS);
+    }
+
+    #[OA\Get(
+        path: '/api/mantenimientos/{id}/equipo/hoja-vida/exportar-pdf',
+        summary: 'Hoja de vida (PDF) del equipo al que pertenece un mantenimiento',
+        tags: ['Equipos Infraestructura'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', description: 'ID del mantenimiento', required: true, schema: new OA\Schema(type: 'integer'))],
+        responses: [new OA\Response(response: 200, description: 'PDF'), new OA\Response(response: 404, description: 'Sin equipo asociado')]
+    )]
+    public function exportarHojaVidaPdfPorMantenimiento(int $id, \App\Modules\Shared\Domain\Contracts\ExcelToPdfConverterInterface $pdfConverter)
+    {
+        return $this->responderPdfPorMantenimiento($id, $pdfConverter, \App\Modules\GestionInfraestructura\Application\UseCases\Equipos\ExportarInfraEquipoPdfUseCase::HOJA_VIDA);
+    }
+
+    #[OA\Get(
+        path: '/api/mantenimientos/{id}/equipo/mantenimientos/exportar-pdf',
+        summary: 'Reporte de mantenimientos (PDF) del equipo al que pertenece un mantenimiento',
+        tags: ['Equipos Infraestructura'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', description: 'ID del mantenimiento', required: true, schema: new OA\Schema(type: 'integer'))],
+        responses: [new OA\Response(response: 200, description: 'PDF'), new OA\Response(response: 404, description: 'Sin equipo asociado')]
+    )]
+    public function exportarMantenimientosPdfPorMantenimiento(int $id, \App\Modules\Shared\Domain\Contracts\ExcelToPdfConverterInterface $pdfConverter)
+    {
+        return $this->responderPdfPorMantenimiento($id, $pdfConverter, \App\Modules\GestionInfraestructura\Application\UseCases\Equipos\ExportarInfraEquipoPdfUseCase::MANTENIMIENTOS);
+    }
+
+    private function responderPdfPorMantenimiento(int $mantenimientoId, \App\Modules\Shared\Domain\Contracts\ExcelToPdfConverterInterface $pdfConverter, string $formato)
+    {
+        $mantenimiento = \App\Models\Mantenimiento::find($mantenimientoId);
+        if (!$mantenimiento) {
+            return response()->json(['success' => false, 'message' => 'Mantenimiento no encontrado'], 404);
+        }
+
+        $equipo = (new \App\Modules\GestionInfraestructura\Application\UseCases\Equipos\InfraEquipoMantenimientoResolver())
+            ->equipoDeMantenimiento($mantenimiento);
+
+        if (!$equipo) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Este mantenimiento no está asociado a un equipo del inventario de infraestructura (no coincide el activo fijo "'
+                    . ($mantenimiento->codigo ?: 'sin código') . '" ni el serial con ningún equipo registrado).',
+            ], 404);
+        }
+
+        return $this->responderPdf($equipo->id, $pdfConverter, $formato);
+    }
+
+    /** Devuelve el PDF directamente (no depende de APP_URL ni del enlace público de storage) */
+    private function responderPdf(int $id, \App\Modules\Shared\Domain\Contracts\ExcelToPdfConverterInterface $pdfConverter, string $formato)
+    {
+        try {
+            $useCase = new \App\Modules\GestionInfraestructura\Application\UseCases\Equipos\ExportarInfraEquipoPdfUseCase($pdfConverter);
+            $fileName = $useCase->execute($id, $formato);
+            $ruta = storage_path('app/public/exports/' . $fileName);
+
+            return response()->file($ruta, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="' . $fileName . '"',
+                'Access-Control-Expose-Headers' => 'Content-Disposition',
+            ])->deleteFileAfterSend(true);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['success' => false, 'message' => 'Equipo de infraestructura no encontrado'], 404);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Error generando PDF de infraestructura: ' . $e->getMessage(), ['equipo' => $id, 'formato' => $formato]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al generar el PDF: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
     #[OA\Get(

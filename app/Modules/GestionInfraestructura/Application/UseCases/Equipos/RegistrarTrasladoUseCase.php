@@ -29,7 +29,7 @@ class RegistrarTrasladoUseCase
         $nuevoResponsableId = $datosTraslado['responsable_id'] ?? $datosTraslado['custodio_id'] ?? $equipo->responsable_id;
 
         $equipo->update([
-            'traslado_dependencia_id' => $equipo->sede_id,
+            'traslado_sede_id' => $equipo->sede_id,
             'traslado_area_id' => $equipo->area_id,
             'sede_id' => $datosTraslado['sede_id'],
             'area_id' => $nuevaAreaId,
@@ -44,6 +44,7 @@ class RegistrarTrasladoUseCase
             'area',
             'responsable.cargo',
             'proveedor',
+            'trasladoSede',
             'trasladoDependencia',
             'trasladoArea',
             'creador',

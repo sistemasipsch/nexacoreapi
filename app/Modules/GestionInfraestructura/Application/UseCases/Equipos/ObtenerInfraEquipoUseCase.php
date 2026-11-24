@@ -14,6 +14,7 @@ class ObtenerInfraEquipoUseCase
             'responsable.cargo',
             'responsable.sede',
             'proveedor',
+            'trasladoSede',
             'trasladoDependencia',
             'trasladoArea',
             'creador',

@@ -14,6 +14,7 @@ class ListarInfraEquiposUseCase
             'area',
             'responsable.cargo',
             'proveedor',
+            'trasladoSede',
             'trasladoDependencia',
             'trasladoArea',
             'creador',

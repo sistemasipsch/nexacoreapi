@@ -33,6 +33,7 @@ class InfraEquipo extends Model
         'frecuencia_mantenimiento',
         'estado_equipo',
         'fecha_traslado',
+        'traslado_sede_id',
         'traslado_dependencia_id',
         'traslado_area_id',
         'descripcion_general',
@@ -73,6 +74,11 @@ class InfraEquipo extends Model
     public function proveedor()
     {
         return $this->belongsTo(CpProveedor::class, 'proveedor_id');
+    }
+
+    public function trasladoSede()
+    {
+        return $this->belongsTo(Sede::class, 'traslado_sede_id');
     }
 
     public function trasladoDependencia()

@@ -40,6 +40,7 @@ class ActualizarInfraEquipoUseCase
             'area',
             'responsable',
             'proveedor',
+            'trasladoSede',
             'trasladoDependencia',
             'trasladoArea',
             'creador',

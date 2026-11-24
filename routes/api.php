@@ -121,7 +121,9 @@ Route::group(['middleware' => 'api'], function () {
         Route::get('mantenimientos/exportar-excel', [App\Modules\GestionInfraestructura\Presentation\Controllers\MantenimientoController::class, 'exportExcel']);
         Route::get('mantenimientos/mis-mantenimientos/exportar-excel', [App\Modules\GestionInfraestructura\Presentation\Controllers\MantenimientoController::class, 'exportMisMantenimientosExcel']);
         Route::get('mantenimientos/tecnico/{tecnico_id}/exportar-excel', [App\Modules\GestionInfraestructura\Presentation\Controllers\MantenimientoController::class, 'exportMantenimientosTecnicoExcel']);
-        Route::get('mantenimientos/estadisticas', [App\Modules\GestionInfraestructura\Presentation\Controllers\MantenimientoController::class, 'getStatistics']);
+        Route::get('mantenimientos/{id}/equipo/hoja-vida/exportar-pdf', [App\Modules\GestionInfraestructura\Presentation\Controllers\InfraEquipoController::class, 'exportarHojaVidaPdfPorMantenimiento']);
+        Route::get('mantenimientos/{id}/equipo/mantenimientos/exportar-pdf', [App\Modules\GestionInfraestructura\Presentation\Controllers\InfraEquipoController::class, 'exportarMantenimientosPdfPorMantenimiento']);
+        Route::get('mantenimientos/estadisticas',[App\Modules\GestionInfraestructura\Presentation\Controllers\MantenimientoController::class, 'getStatistics']);
         Route::apiResource('mantenimientos', App\Modules\GestionInfraestructura\Presentation\Controllers\MantenimientoController::class);
         Route::post('mantenimientos/{id}/marcar-revisado', [App\Modules\GestionInfraestructura\Presentation\Controllers\MantenimientoController::class, 'marcarRevisado']);
 
@@ -139,6 +141,8 @@ Route::group(['middleware' => 'api'], function () {
         Route::match(['put', 'post'], 'infraestructura/equipos/{id}', [App\Modules\GestionInfraestructura\Presentation\Controllers\InfraEquipoController::class, 'update']);
         Route::delete('infraestructura/equipos/{id}', [App\Modules\GestionInfraestructura\Presentation\Controllers\InfraEquipoController::class, 'destroy']);
         Route::post('infraestructura/equipos/{id}/traslado', [App\Modules\GestionInfraestructura\Presentation\Controllers\InfraEquipoController::class, 'registrarTraslado']);
+        Route::get('infraestructura/equipos/{id}/hoja-vida/exportar-pdf', [App\Modules\GestionInfraestructura\Presentation\Controllers\InfraEquipoController::class, 'exportarHojaVidaPdf']);
+        Route::get('infraestructura/equipos/{id}/mantenimientos/exportar-pdf', [App\Modules\GestionInfraestructura\Presentation\Controllers\InfraEquipoController::class, 'exportarMantenimientosPdf']);
     });
 });
 

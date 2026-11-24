@@ -3,6 +3,7 @@
 namespace App\Modules\Shared\Infrastructure\Adapters;
 
 use App\Modules\Shared\Domain\Contracts\ExcelToPdfConverterInterface;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -19,10 +20,19 @@ class MicroserviceExcelToPdfConverter implements ExcelToPdfConverterInterface
             throw new Exception("El archivo Excel temporal no existe.");
         }
 
-        if (!empty($url)) {
+        // Si el microservicio falló hace poco, no se vuelve a esperar su conexión en cada PDF
+        $claveCaido = 'convertidor_excel_pdf_no_disponible';
+        $caido = false;
+        try {
+            $caido = (bool) Cache::get($claveCaido, false);
+        } catch (\Throwable $e) {
+            // Sin caché disponible: se intenta normalmente
+        }
+
+        if (!empty($url) && !$caido) {
             try {
                 $endpoint = rtrim($url, '/') . '/api/convertir/excel-a-pdf';
-                $response = Http::timeout(12)->withHeaders([
+                $response = Http::connectTimeout(3)->timeout(12)->withHeaders([
                     'x-api-key' => $apiKey,
                 ])->attach(
                     'documento', file_get_contents($excelFilePath), basename($excelFilePath)
@@ -35,7 +45,12 @@ class MicroserviceExcelToPdfConverter implements ExcelToPdfConverterInterface
                 $error = $response->json('error') ?: $response->body() ?: 'Error desconocido';
                 Log::warning("Microservicio convertidor retornó error: {$error}. Usando convertidor local mPDF.");
             } catch (\Throwable $e) {
-                Log::warning("No se pudo conectar al microservicio convertidor ({$e->getMessage()}). Usando convertidor local mPDF.");
+                Log::warning("No se pudo conectar al microservicio convertidor ({$e->getMessage()}). Usando convertidor local mPDF por 5 minutos.");
+                try {
+                    Cache::put($claveCaido, true, now()->addMinutes(5));
+                } catch (\Throwable $ignored) {
+                    // Sin caché: se reintentará en el siguiente PDF
+                }
             }
         }
 
