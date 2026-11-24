@@ -6,6 +6,6 @@ class ObtenerSedeUseCase
 {
     public function execute($id)
     {
-        return Sede::find($id);
+        return Sede::with('responsable:id,nombre_completo')->find($id);
     }
 }

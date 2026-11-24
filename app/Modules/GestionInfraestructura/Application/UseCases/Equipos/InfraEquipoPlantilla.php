@@ -209,6 +209,10 @@ class InfraEquipoPlantilla
         $nombreResponsable = $responsable
             ? trim(($responsable->nombre ?? '') . ' ' . ($responsable->apellidos ?? ''))
             : '';
+        if ($nombreResponsable === '') {
+            // Sin encargado propio: el responsable de la sede del equipo
+            $nombreResponsable = trim((string) ($this->responsableSede($equipo->sede_id)?->nombre_completo ?? ''));
+        }
         $this->setValor($sheet, 'G26', $nombreResponsable);
 
         foreach (['W25', 'AJ25', 'W26', 'G26'] as $c) {

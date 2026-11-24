@@ -96,6 +96,7 @@ Route::group(['middleware' => 'api'], function () {
         Route::apiResource('datos-empresa', App\Modules\Configuracion\Presentation\Controllers\DatosEmpresaController::class);
 
         // Sedes, Dependencias and Areas Routes
+        Route::get('sedes/responsables-disponibles', [App\Modules\Configuracion\Presentation\Controllers\SedeController::class, 'responsablesDisponibles']);
         Route::apiResource('sedes', App\Modules\Configuracion\Presentation\Controllers\SedeController::class);
         Route::apiResource('dependencias-sedes', App\Modules\Configuracion\Presentation\Controllers\DependenciaSedeController::class);
         Route::apiResource('areas', App\Modules\Configuracion\Presentation\Controllers\AreaController::class);

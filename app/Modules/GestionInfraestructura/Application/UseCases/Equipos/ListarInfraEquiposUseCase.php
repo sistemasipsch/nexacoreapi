@@ -10,7 +10,7 @@ class ListarInfraEquiposUseCase
     public function execute(FiltroInfraEquiposDTO $filtro)
     {
         $query = InfraEquipo::with([
-            'sede',
+            'sede.responsable:id,nombre_completo',
             'area',
             'responsable.cargo',
             'proveedor',

@@ -6,6 +6,6 @@ class ListarSedeUseCase
 {
     public function execute()
     {
-        return Sede::all();
+        return Sede::with('responsable:id,nombre_completo')->get();
     }
 }

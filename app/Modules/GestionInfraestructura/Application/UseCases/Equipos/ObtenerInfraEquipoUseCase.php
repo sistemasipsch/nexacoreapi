@@ -9,7 +9,7 @@ class ObtenerInfraEquipoUseCase
     public function execute(int $id): InfraEquipo
     {
         return InfraEquipo::with([
-            'sede',
+            'sede.responsable:id,nombre_completo',
             'area',
             'responsable.cargo',
             'responsable.sede',
