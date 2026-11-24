@@ -207,7 +207,9 @@ class ExportarActaEntregaPdfUseCase
         }
 
         $filename = 'acta_entrega_' . $acta->id . '_' . time() . '.pdf';
-        $tempExcelPath = tempnam(sys_get_temp_dir(), 'acta_excel_') . '.xlsx';
+        // Nombre único (tempnam() repite nombres y dejaba un archivo .tmp vacío por cada acta)
+        $tempExcelPath = sys_get_temp_dir() . DIRECTORY_SEPARATOR
+            . 'acta_entrega_' . $acta->id . '_' . bin2hex(random_bytes(8)) . '.xlsx';
         
         $writer = new Xlsx($spreadsheet);
         $writer->save($tempExcelPath);

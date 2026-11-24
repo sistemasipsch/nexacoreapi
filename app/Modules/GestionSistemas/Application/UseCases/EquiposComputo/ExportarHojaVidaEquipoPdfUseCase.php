@@ -31,9 +31,10 @@ class ExportarHojaVidaEquipoPdfUseCase
             }
         }
 
-        $tmpBase = tempnam(sys_get_temp_dir(), 'hv_excel_');
-        $tempExcelPath = $tmpBase . '.xlsx';
-        @unlink($tmpBase);
+        // Nombre único por equipo y por generación: tempnam() repite nombres con el tiempo
+        // (en Windows solo usa 4 caracteres) y el convertidor podía devolver el PDF de otro equipo
+        $tempExcelPath = sys_get_temp_dir() . DIRECTORY_SEPARATOR
+            . 'hoja_vida_equipo_' . $equipo->id . '_' . bin2hex(random_bytes(8)) . '.xlsx';
 
         try {
             (new Xlsx($spreadsheet))->save($tempExcelPath);

@@ -32,10 +32,13 @@ class MicroserviceExcelToPdfConverter implements ExcelToPdfConverterInterface
         if (!empty($url) && !$caido) {
             try {
                 $endpoint = rtrim($url, '/') . '/api/convertir/excel-a-pdf';
+                // Nombre único en cada envío: los nombres temporales se repiten con el tiempo y, si el
+                // microservicio reutiliza archivos por nombre, devolvería el PDF de otro documento
+                $nombreEnvio = pathinfo($excelFilePath, PATHINFO_FILENAME) . '_' . bin2hex(random_bytes(8)) . '.xlsx';
                 $response = Http::connectTimeout(3)->timeout(12)->withHeaders([
                     'x-api-key' => $apiKey,
                 ])->attach(
-                    'documento', file_get_contents($excelFilePath), basename($excelFilePath)
+                    'documento', file_get_contents($excelFilePath), $nombreEnvio
                 )->post($endpoint);
 
                 if ($response->successful()) {
